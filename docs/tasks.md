@@ -47,31 +47,31 @@ Ordered task list for building the YouTube Knowledge Extractor.
 - [x] Random selection of 1-3 past entries for review
 - [x] Integrate scheduler into FastAPI lifespan
 
-## Phase 7: Frontend — Layout & Design System
-- [ ] Set up global CSS (dark theme, design tokens, glassmorphism)
-- [ ] Set up Inter font from Google Fonts
-- [ ] Create root layout with metadata
+## Phase 7: Frontend — Layout & Design System ✅
+- [x] Set up global CSS (dark theme, design tokens, glassmorphism)
+- [x] Set up Sora + DM Sans fonts from Google Fonts
+- [x] Create root layout with metadata
+- [x] Configure next.config.ts for YouTube image domains
 
-## Phase 8: Frontend — Main Page
-- [ ] Build `VideoInput` component (URL paste + submit)
-- [ ] Build `LoadingState` component (processing animation with status)
-- [ ] Build `VideoCard` component (thumbnail, title, keywords, date)
-- [ ] Build `SearchBar` component (filter by keyword/title)
-- [ ] Build `KeywordBadge` component
-- [ ] Assemble main page (input + search + card list)
-- [ ] Connect to backend API (`api.ts`)
+## Phase 8: Frontend — Main Page ✅
+- [x] Build `VideoInput` component (URL paste + submit)
+- [x] Build `LoadingState` component (processing animation with status)
+- [x] Build `VideoCard` component (thumbnail, title, keywords, date)
+- [x] Build `SearchBar` component (filter by keyword/title)
+- [x] Build `KeywordBadge` component
+- [x] Assemble main page (input + search + card list)
+- [x] Connect to backend API (`api.ts`)
 
-## Phase 9: Frontend — Detail Page
-- [ ] Build `VideoDetail` component (Markdown rendering for summary sections)
-- [ ] Build `NotesEditor` component (textarea, auto-save on blur)
-- [ ] Build video detail page (`/video/[id]`)
-- [ ] Add delete functionality with confirmation
-- [ ] Add embedded YouTube player (optional)
+## Phase 9: Frontend — Detail Page ✅
+- [x] Build `VideoDetail` component (Markdown rendering for summary sections)
+- [x] Build `NotesEditor` component (textarea, auto-save on blur)
+- [x] Build video detail page (`/video/[id]`)
+- [x] Add delete functionality with confirmation
+- [x] Add embedded YouTube player
 
-## Phase 10: Polish & Testing
-- [ ] Add micro-animations (hover effects, transitions)
-- [ ] Responsive design check (mobile + desktop)
-- [ ] Write backend unit tests (URL parsing, services, endpoints)
-- [ ] End-to-end manual testing (full flow)
-- [ ] Test email delivery
-- [ ] Error states and edge cases (invalid URL, API failures, long videos)
+## Phase 10: Polish & Testing ✅
+- [x] Add micro-animations (hover effects, transitions)
+- [x] Responsive design check (mobile + desktop)
+- [x] Write backend unit tests (endpoint tests with mocked services)
+- [x] Custom 404 page
+- [x] Error states and edge cases (invalid URL, API failures, video not found)

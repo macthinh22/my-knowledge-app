@@ -134,13 +134,19 @@ class YouTubeService:
     async def fetch_transcript(self, youtube_id: str) -> tuple[str, str]:
         """Fetch the transcript/captions for a YouTube video.
 
-        Tries English captions first, then auto-generated, then any available language.
+        Strategy (in order of preference):
+        1. Manual transcript in English
+        2. Manual transcript in any language → translate to English
+        3. Auto-generated transcript in English
+        4. Auto-generated transcript in any language → translate to English
+        5. Auto-generated transcript in any language (untranslated)
 
         Args:
             youtube_id: The 11-character YouTube video ID.
 
         Returns:
-            A tuple of (transcript_text, source) where source is ``"captions"``.
+            A tuple of (transcript_text, source) where source is
+            ``"captions"`` or ``"captions-translated"``.
 
         Raises:
             TranscriptNotAvailableError: If no transcript can be found.
@@ -149,10 +155,66 @@ class YouTubeService:
 
         try:
             ytt_api = YouTubeTranscriptApi()
-            transcript = ytt_api.fetch(youtube_id)
+            transcript_list = ytt_api.list(youtube_id)
 
-            # Join all segments into a single string
-            full_text = " ".join(snippet.text for snippet in transcript.snippets)
+            transcript = None
+            source_label = "captions"
+
+            # --- 1. Try manual transcripts ---
+            try:
+                transcript = transcript_list.find_manually_created_transcript(["en"])
+                self.logger.info("Found manual English transcript")
+            except Exception:
+                # Try any manual transcript and translate
+                for t in transcript_list:
+                    if not t.is_generated:
+                        if t.is_translatable:
+                            transcript = t.translate("en")
+                            source_label = "captions-translated"
+                            self.logger.info(
+                                "Found manual %s transcript → translating to en",
+                                t.language_code,
+                            )
+                        else:
+                            transcript = t
+                            self.logger.info(
+                                "Found manual %s transcript (not translatable)",
+                                t.language_code,
+                            )
+                        break
+
+            # --- 2. Try auto-generated transcripts ---
+            if transcript is None:
+                try:
+                    transcript = transcript_list.find_generated_transcript(["en"])
+                    self.logger.info("Found auto-generated English transcript")
+                except Exception:
+                    # Try any auto-generated transcript
+                    for t in transcript_list:
+                        if t.is_generated:
+                            if t.is_translatable:
+                                transcript = t.translate("en")
+                                source_label = "captions-translated"
+                                self.logger.info(
+                                    "Found auto-generated %s transcript → translating to en",
+                                    t.language_code,
+                                )
+                            else:
+                                transcript = t
+                                self.logger.info(
+                                    "Found auto-generated %s transcript (not translatable)",
+                                    t.language_code,
+                                )
+                            break
+
+            if transcript is None:
+                raise TranscriptNotAvailableError(
+                    f"No transcripts available for video: {youtube_id}"
+                )
+
+            # Fetch the transcript data
+            fetched = transcript.fetch()
+            full_text = " ".join(snippet.text for snippet in fetched.snippets)
 
             if not full_text.strip():
                 raise TranscriptNotAvailableError(
@@ -160,10 +222,11 @@ class YouTubeService:
                 )
 
             self.logger.info(
-                "Transcript fetched — %d characters, source=captions",
+                "Transcript fetched — %d characters, source=%s",
                 len(full_text),
+                source_label,
             )
-            return full_text, "captions"
+            return full_text, source_label
 
         except TranscriptNotAvailableError:
             raise
