@@ -6,7 +6,6 @@ import LoadingState from "@/components/LoadingState";
 import SearchBar from "@/components/SearchBar";
 import VideoCard from "@/components/VideoCard";
 import { createVideo, listVideos, type VideoListItem } from "@/lib/api";
-import styles from "./page.module.css";
 
 export default function Home() {
   const [videos, setVideos] = useState<VideoListItem[]>([]);
@@ -56,30 +55,45 @@ export default function Home() {
     <>
       <LoadingState visible={loading} />
 
-      <div className={styles.page}>
+      <div className="min-h-screen px-6 py-8 max-w-5xl mx-auto">
         {/* Hero */}
-        <header className={styles.hero}>
-          <div className={styles.heroGlow} />
-          <h1 className={styles.heading}>
-            <span className={styles.headingLine}>YouTube</span>
-            <span className={`${styles.headingLine} gradient-text`}>
+        <header
+          className="flex flex-col items-center text-center gap-5
+                     pt-16 pb-12 animate-[fadeIn_600ms_ease-out]
+                     max-sm:pt-10 max-sm:pb-8"
+        >
+          <h1 className="font-[var(--font-heading)] text-5xl font-bold leading-tight tracking-tight max-sm:text-3xl">
+            <span className="block text-[var(--fg-primary)]">YouTube</span>
+            <span className="block text-[var(--accent)]">
               Knowledge Extractor
             </span>
           </h1>
-          <p className={styles.subtitle}>
+          <p className="text-lg text-[var(--fg-secondary)] max-w-md leading-relaxed max-sm:text-base">
             Paste a video link. Get a structured summary in seconds.
           </p>
 
           <VideoInput onSubmit={handleSubmit} disabled={loading} />
 
-          {error && <p className={styles.error}>{error}</p>}
+          {error && (
+            <p
+              className="px-5 py-2.5 text-sm text-[var(--color-error)]
+                         bg-[var(--color-error)]/8 border border-[var(--color-error)]/20
+                         rounded-lg animate-[slideDown_250ms_ease-out]"
+            >
+              {error}
+            </p>
+          )}
         </header>
 
         {/* Toolbar */}
         {videos.length > 0 && (
-          <div className={styles.toolbar}>
+          <div
+            className="flex items-center justify-between gap-4 mb-8
+                       animate-[slideUp_400ms_ease-out]
+                       max-sm:flex-col max-sm:items-stretch"
+          >
             <SearchBar value={search} onChange={setSearch} />
-            <span className={styles.count}>
+            <span className="shrink-0 text-sm text-[var(--fg-muted)] tabular-nums max-sm:text-right">
               {filtered.length} {filtered.length === 1 ? "video" : "videos"}
             </span>
           </div>
@@ -87,7 +101,7 @@ export default function Home() {
 
         {/* Grid */}
         {!initialLoad && filtered.length > 0 && (
-          <section className={styles.grid}>
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((v, i) => (
               <VideoCard key={v.id} video={v} index={i} />
             ))}
@@ -96,10 +110,17 @@ export default function Home() {
 
         {/* Empty states */}
         {!initialLoad && videos.length === 0 && !loading && (
-          <div className={styles.empty}>
-            <div className={styles.emptyIcon}>📚</div>
-            <h2 className={styles.emptyTitle}>No videos yet</h2>
-            <p className={styles.emptyText}>
+          <div className="flex flex-col items-center gap-4 py-20 px-8 text-center animate-[fadeIn_500ms_ease-out]">
+            <div className="text-5xl leading-none opacity-60">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--fg-muted)]">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+              </svg>
+            </div>
+            <h2 className="font-[var(--font-heading)] text-xl font-semibold text-[var(--fg-secondary)]">
+              No videos yet
+            </h2>
+            <p className="text-sm text-[var(--fg-muted)] max-w-sm leading-relaxed">
               Paste a YouTube URL above to extract your first knowledge summary.
             </p>
           </div>
@@ -109,10 +130,15 @@ export default function Home() {
           videos.length > 0 &&
           filtered.length === 0 &&
           search && (
-            <div className={styles.empty}>
-              <div className={styles.emptyIcon}>🔍</div>
-              <h2 className={styles.emptyTitle}>No matches</h2>
-              <p className={styles.emptyText}>
+            <div className="flex flex-col items-center gap-4 py-20 px-8 text-center animate-[fadeIn_500ms_ease-out]">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--fg-muted)] opacity-60">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <h2 className="font-[var(--font-heading)] text-xl font-semibold text-[var(--fg-secondary)]">
+                No matches
+              </h2>
+              <p className="text-sm text-[var(--fg-muted)] max-w-sm leading-relaxed">
                 Try a different search term.
               </p>
             </div>
