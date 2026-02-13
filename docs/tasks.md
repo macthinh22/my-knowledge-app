@@ -25,27 +25,27 @@ Ordered task list for building the YouTube Knowledge Extractor.
 - [x] Implement Whisper fallback transcription (download audio + Whisper API)
 - [x] Add error handling + logging for both transcript paths
 
-## Phase 4: Backend — AI Summarization
-- [ ] Design GPT prompt for structured summary generation
-- [ ] Implement summarizer service (call OpenAI, parse structured response)
-- [ ] Test prompt with various video types (tutorial, talk, interview)
-- [ ] Fine-tune prompt for depth and detail quality
+## Phase 4: Backend — AI Summarization ✅
+- [x] Design GPT prompt for structured summary generation
+- [x] Implement summarizer service (call OpenAI, parse structured response)
+- [x] Test prompt with various video types (tutorial, talk, interview)
+- [x] Fine-tune prompt for depth and detail quality
 
-## Phase 5: Backend — API Endpoints
-- [ ] `POST /api/videos` — full pipeline (extract → transcribe → summarize → store)
-- [ ] `GET /api/videos` — list all, sorted newest first
-- [ ] `GET /api/videos/{id}` — get single video detail
-- [ ] `PATCH /api/videos/{id}` — update user notes
-- [ ] `DELETE /api/videos/{id}` — delete entry
-- [ ] Duplicate handling (return existing if same `youtube_id`)
-- [ ] Wire up FastAPI app with CORS (`main.py`)
+## Phase 5: Backend — API Endpoints ✅
+- [x] `POST /api/videos` — full pipeline (extract → transcribe → summarize → store)
+- [x] `GET /api/videos` — list all, sorted newest first
+- [x] `GET /api/videos/{id}` — get single video detail
+- [x] `PATCH /api/videos/{id}` — update user notes
+- [x] `DELETE /api/videos/{id}` — delete entry
+- [x] Duplicate handling (return existing if same `youtube_id`)
+- [x] Wire up FastAPI app with CORS (`main.py`)
 
-## Phase 6: Backend — Email & Scheduler
-- [ ] Implement Gmail SMTP email sending (`email_service.py`)
-- [ ] Design HTML email template for review digest
-- [ ] Implement APScheduler daily cron job (`scheduler.py`)
-- [ ] Random selection of 1-3 past entries for review
-- [ ] Integrate scheduler into FastAPI lifespan
+## Phase 6: Backend — Email & Scheduler ✅
+- [x] Implement Gmail SMTP email sending (`email_service.py`)
+- [x] Design HTML email template for review digest
+- [x] Implement APScheduler daily cron job (`scheduler.py`)
+- [x] Random selection of 1-3 past entries for review
+- [x] Integrate scheduler into FastAPI lifespan
 
 ## Phase 7: Frontend — Layout & Design System
 - [ ] Set up global CSS (dark theme, design tokens, glassmorphism)
