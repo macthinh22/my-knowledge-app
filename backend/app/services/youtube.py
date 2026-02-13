@@ -18,21 +18,15 @@ _YOUTUBE_URL_PATTERNS: list[re.Pattern[str]] = [
         r"(?:https?://)?(?:www\.|m\.)?youtube\.com/watch\?.*?v=(?P<id>[a-zA-Z0-9_-]{11})"
     ),
     # Shortened URL: youtu.be/ID
-    re.compile(
-        r"(?:https?://)?youtu\.be/(?P<id>[a-zA-Z0-9_-]{11})"
-    ),
+    re.compile(r"(?:https?://)?youtu\.be/(?P<id>[a-zA-Z0-9_-]{11})"),
     # Embed URL: youtube.com/embed/ID
-    re.compile(
-        r"(?:https?://)?(?:www\.)?youtube\.com/embed/(?P<id>[a-zA-Z0-9_-]{11})"
-    ),
+    re.compile(r"(?:https?://)?(?:www\.)?youtube\.com/embed/(?P<id>[a-zA-Z0-9_-]{11})"),
     # Shorts URL: youtube.com/shorts/ID
     re.compile(
         r"(?:https?://)?(?:www\.)?youtube\.com/shorts/(?P<id>[a-zA-Z0-9_-]{11})"
     ),
     # Live URL: youtube.com/live/ID
-    re.compile(
-        r"(?:https?://)?(?:www\.)?youtube\.com/live/(?P<id>[a-zA-Z0-9_-]{11})"
-    ),
+    re.compile(r"(?:https?://)?(?:www\.)?youtube\.com/live/(?P<id>[a-zA-Z0-9_-]{11})"),
 ]
 
 
@@ -46,7 +40,7 @@ class VideoMetadata:
     duration: int | None  # seconds
 
 
-class TranscriptNotAvailable(Exception):
+class TranscriptNotAvailableError(Exception):
     """Raised when no transcript/captions can be found for a video."""
 
 
@@ -114,9 +108,7 @@ class YouTubeService:
                 info = ydl.extract_info(video_url, download=False)
 
             if info is None:
-                raise RuntimeError(
-                    f"yt-dlp returned no info for video: {youtube_id}"
-                )
+                raise RuntimeError(f"yt-dlp returned no info for video: {youtube_id}")
 
             metadata = VideoMetadata(
                 title=info.get("title", "Unknown Title"),
@@ -134,9 +126,7 @@ class YouTubeService:
             return metadata
 
         except Exception as exc:
-            self.logger.error(
-                "Failed to fetch metadata for %s: %s", youtube_id, exc
-            )
+            self.logger.error("Failed to fetch metadata for %s: %s", youtube_id, exc)
             raise RuntimeError(
                 f"Failed to fetch metadata for video {youtube_id}: {exc}"
             ) from exc
@@ -153,7 +143,7 @@ class YouTubeService:
             A tuple of (transcript_text, source) where source is ``"captions"``.
 
         Raises:
-            TranscriptNotAvailable: If no transcript can be found.
+            TranscriptNotAvailableError: If no transcript can be found.
         """
         self.logger.info("Fetching transcript for video: %s", youtube_id)
 
@@ -162,12 +152,10 @@ class YouTubeService:
             transcript = ytt_api.fetch(youtube_id)
 
             # Join all segments into a single string
-            full_text = " ".join(
-                snippet.text for snippet in transcript.snippets
-            )
+            full_text = " ".join(snippet.text for snippet in transcript.snippets)
 
             if not full_text.strip():
-                raise TranscriptNotAvailable(
+                raise TranscriptNotAvailableError(
                     f"Transcript is empty for video: {youtube_id}"
                 )
 
@@ -177,12 +165,10 @@ class YouTubeService:
             )
             return full_text, "captions"
 
-        except TranscriptNotAvailable:
+        except TranscriptNotAvailableError:
             raise
         except Exception as exc:
-            self.logger.warning(
-                "No captions available for %s: %s", youtube_id, exc
-            )
-            raise TranscriptNotAvailable(
+            self.logger.warning("No captions available for %s: %s", youtube_id, exc)
+            raise TranscriptNotAvailableError(
                 f"No captions available for video {youtube_id}: {exc}"
             ) from exc
