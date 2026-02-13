@@ -8,8 +8,6 @@ from youtube_transcript_api import YouTubeTranscriptApi
 
 from app.logging_config import get_logger
 
-logger = get_logger(__name__)
-
 # ---------------------------------------------------------------------------
 # Regex patterns for YouTube URL formats
 # ---------------------------------------------------------------------------
@@ -53,129 +51,138 @@ class TranscriptNotAvailable(Exception):
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# YouTubeService
 # ---------------------------------------------------------------------------
 
 
-def extract_youtube_id(url: str) -> str:
-    """Extract the 11-character YouTube video ID from various URL formats.
+class YouTubeService:
+    """Service for YouTube data extraction — URL parsing, metadata, and transcripts."""
 
-    Args:
-        url: Any YouTube video URL.
+    def __init__(self) -> None:
+        self.logger = get_logger(__name__)
 
-    Returns:
-        The 11-character video ID string.
+    def extract_youtube_id(self, url: str) -> str:
+        """Extract the 11-character YouTube video ID from various URL formats.
 
-    Raises:
-        ValueError: If the URL is not a recognised YouTube format.
-    """
-    url = url.strip()
+        Args:
+            url: Any YouTube video URL.
 
-    for pattern in _YOUTUBE_URL_PATTERNS:
-        match = pattern.search(url)
-        if match:
-            video_id = match.group("id")
-            logger.debug("Extracted YouTube ID '%s' from URL: %s", video_id, url)
-            return video_id
+        Returns:
+            The 11-character video ID string.
 
-    raise ValueError(f"Could not extract YouTube video ID from URL: {url}")
+        Raises:
+            ValueError: If the URL is not a recognised YouTube format.
+        """
+        url = url.strip()
 
+        for pattern in _YOUTUBE_URL_PATTERNS:
+            match = pattern.search(url)
+            if match:
+                video_id = match.group("id")
+                self.logger.debug(
+                    "Extracted YouTube ID '%s' from URL: %s", video_id, url
+                )
+                return video_id
 
-async def fetch_metadata(youtube_id: str) -> VideoMetadata:
-    """Fetch video metadata using yt-dlp (no download).
+        raise ValueError(f"Could not extract YouTube video ID from URL: {url}")
 
-    Args:
-        youtube_id: The 11-character YouTube video ID.
+    async def fetch_metadata(self, youtube_id: str) -> VideoMetadata:
+        """Fetch video metadata using yt-dlp (no download).
 
-    Returns:
-        A VideoMetadata dataclass with title, thumbnail, channel, and duration.
+        Args:
+            youtube_id: The 11-character YouTube video ID.
 
-    Raises:
-        RuntimeError: If yt-dlp fails to extract metadata.
-    """
-    video_url = f"https://www.youtube.com/watch?v={youtube_id}"
+        Returns:
+            A VideoMetadata dataclass with title, thumbnail, channel, and duration.
 
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "skip_download": True,
-        # Don't extract comments, related videos, etc.
-        "extract_flat": False,
-    }
+        Raises:
+            RuntimeError: If yt-dlp fails to extract metadata.
+        """
+        video_url = f"https://www.youtube.com/watch?v={youtube_id}"
 
-    logger.info("Fetching metadata for video: %s", youtube_id)
+        ydl_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "skip_download": True,
+            "extract_flat": False,
+        }
 
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(video_url, download=False)
+        self.logger.info("Fetching metadata for video: %s", youtube_id)
 
-        if info is None:
-            raise RuntimeError(f"yt-dlp returned no info for video: {youtube_id}")
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(video_url, download=False)
 
-        metadata = VideoMetadata(
-            title=info.get("title", "Unknown Title"),
-            thumbnail_url=info.get("thumbnail"),
-            channel_name=info.get("uploader") or info.get("channel"),
-            duration=info.get("duration"),
-        )
+            if info is None:
+                raise RuntimeError(
+                    f"yt-dlp returned no info for video: {youtube_id}"
+                )
 
-        logger.info(
-            "Metadata fetched — title='%s', channel='%s', duration=%ss",
-            metadata.title,
-            metadata.channel_name,
-            metadata.duration,
-        )
-        return metadata
-
-    except Exception as exc:
-        logger.error("Failed to fetch metadata for %s: %s", youtube_id, exc)
-        raise RuntimeError(
-            f"Failed to fetch metadata for video {youtube_id}: {exc}"
-        ) from exc
-
-
-async def fetch_transcript(youtube_id: str) -> tuple[str, str]:
-    """Fetch the transcript/captions for a YouTube video.
-
-    Tries English captions first, then auto-generated, then any available language.
-
-    Args:
-        youtube_id: The 11-character YouTube video ID.
-
-    Returns:
-        A tuple of (transcript_text, source) where source is ``"captions"``.
-
-    Raises:
-        TranscriptNotAvailable: If no transcript can be found.
-    """
-    logger.info("Fetching transcript for video: %s", youtube_id)
-
-    try:
-        ytt_api = YouTubeTranscriptApi()
-        transcript = ytt_api.fetch(youtube_id)
-
-        # Join all segments into a single string
-        full_text = " ".join(
-            snippet.text for snippet in transcript.snippets
-        )
-
-        if not full_text.strip():
-            raise TranscriptNotAvailable(
-                f"Transcript is empty for video: {youtube_id}"
+            metadata = VideoMetadata(
+                title=info.get("title", "Unknown Title"),
+                thumbnail_url=info.get("thumbnail"),
+                channel_name=info.get("uploader") or info.get("channel"),
+                duration=info.get("duration"),
             )
 
-        logger.info(
-            "Transcript fetched — %d characters, source=captions",
-            len(full_text),
-        )
-        return full_text, "captions"
+            self.logger.info(
+                "Metadata fetched — title='%s', channel='%s', duration=%ss",
+                metadata.title,
+                metadata.channel_name,
+                metadata.duration,
+            )
+            return metadata
 
-    except TranscriptNotAvailable:
-        raise
-    except Exception as exc:
-        logger.warning(
-            "No captions available for %s: %s", youtube_id, exc
-        )
-        raise TranscriptNotAvailable(
-            f"No captions available for video {youtube_id}: {exc}"
-        ) from exc
+        except Exception as exc:
+            self.logger.error(
+                "Failed to fetch metadata for %s: %s", youtube_id, exc
+            )
+            raise RuntimeError(
+                f"Failed to fetch metadata for video {youtube_id}: {exc}"
+            ) from exc
+
+    async def fetch_transcript(self, youtube_id: str) -> tuple[str, str]:
+        """Fetch the transcript/captions for a YouTube video.
+
+        Tries English captions first, then auto-generated, then any available language.
+
+        Args:
+            youtube_id: The 11-character YouTube video ID.
+
+        Returns:
+            A tuple of (transcript_text, source) where source is ``"captions"``.
+
+        Raises:
+            TranscriptNotAvailable: If no transcript can be found.
+        """
+        self.logger.info("Fetching transcript for video: %s", youtube_id)
+
+        try:
+            ytt_api = YouTubeTranscriptApi()
+            transcript = ytt_api.fetch(youtube_id)
+
+            # Join all segments into a single string
+            full_text = " ".join(
+                snippet.text for snippet in transcript.snippets
+            )
+
+            if not full_text.strip():
+                raise TranscriptNotAvailable(
+                    f"Transcript is empty for video: {youtube_id}"
+                )
+
+            self.logger.info(
+                "Transcript fetched — %d characters, source=captions",
+                len(full_text),
+            )
+            return full_text, "captions"
+
+        except TranscriptNotAvailable:
+            raise
+        except Exception as exc:
+            self.logger.warning(
+                "No captions available for %s: %s", youtube_id, exc
+            )
+            raise TranscriptNotAvailable(
+                f"No captions available for video {youtube_id}: {exc}"
+            ) from exc

@@ -9,101 +9,106 @@ from openai import AsyncOpenAI
 from app.config import settings
 from app.logging_config import get_logger
 
-logger = get_logger(__name__)
 
+class TranscriptionService:
+    """Service for Whisper-based fallback transcription."""
 
-async def transcribe_with_whisper(youtube_id: str) -> tuple[str, str]:
-    """Download audio via yt-dlp and transcribe with OpenAI Whisper API.
+    def __init__(self) -> None:
+        self.logger = get_logger(__name__)
+        self.client = AsyncOpenAI(api_key=settings.openai_api_key)
 
-    This is the fallback path — used only when youtube-transcript-api
-    finds no captions for the video.
+    async def transcribe_with_whisper(self, youtube_id: str) -> tuple[str, str]:
+        """Download audio via yt-dlp and transcribe with OpenAI Whisper API.
 
-    Args:
-        youtube_id: The 11-character YouTube video ID.
+        This is the fallback path — used only when youtube-transcript-api
+        finds no captions for the video.
 
-    Returns:
-        A tuple of (transcript_text, ``"whisper"``).
+        Args:
+            youtube_id: The 11-character YouTube video ID.
 
-    Raises:
-        RuntimeError: If audio download or transcription fails.
-    """
-    video_url = f"https://www.youtube.com/watch?v={youtube_id}"
-    audio_path: Path | None = None
+        Returns:
+            A tuple of (transcript_text, ``"whisper"``).
 
-    try:
-        # --- Step 1: Download audio to a temp file ---
-        logger.info("Downloading audio for Whisper transcription: %s", youtube_id)
+        Raises:
+            RuntimeError: If audio download or transcription fails.
+        """
+        video_url = f"https://www.youtube.com/watch?v={youtube_id}"
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            output_template = str(Path(tmp_dir) / "%(id)s.%(ext)s")
-
-            ydl_opts = {
-                "format": "bestaudio/best",
-                "quiet": True,
-                "no_warnings": True,
-                "outtmpl": output_template,
-                "postprocessors": [
-                    {
-                        "key": "FFmpegExtractAudio",
-                        "preferredcodec": "mp3",
-                        "preferredquality": "128",
-                    }
-                ],
-            }
-
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([video_url])
-
-            # Find the downloaded mp3 file
-            audio_files = list(Path(tmp_dir).glob("*.mp3"))
-            if not audio_files:
-                raise RuntimeError(
-                    f"Audio download produced no mp3 file for video: {youtube_id}"
-                )
-
-            audio_path = audio_files[0]
-            file_size_mb = audio_path.stat().st_size / (1024 * 1024)
-            logger.info(
-                "Audio downloaded: %s (%.1f MB)", audio_path.name, file_size_mb
+        try:
+            # --- Step 1: Download audio to a temp directory ---
+            self.logger.info(
+                "Downloading audio for Whisper transcription: %s", youtube_id
             )
 
-            # Whisper API limit is 25 MB
-            if file_size_mb > 25:
-                raise RuntimeError(
-                    f"Audio file too large for Whisper API ({file_size_mb:.1f} MB > 25 MB limit)"
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                output_template = str(Path(tmp_dir) / "%(id)s.%(ext)s")
+
+                ydl_opts = {
+                    "format": "bestaudio/best",
+                    "quiet": True,
+                    "no_warnings": True,
+                    "outtmpl": output_template,
+                    "postprocessors": [
+                        {
+                            "key": "FFmpegExtractAudio",
+                            "preferredcodec": "mp3",
+                            "preferredquality": "128",
+                        }
+                    ],
+                }
+
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([video_url])
+
+                # Find the downloaded mp3 file
+                audio_files = list(Path(tmp_dir).glob("*.mp3"))
+                if not audio_files:
+                    raise RuntimeError(
+                        f"Audio download produced no mp3 file for video: {youtube_id}"
+                    )
+
+                audio_path = audio_files[0]
+                file_size_mb = audio_path.stat().st_size / (1024 * 1024)
+                self.logger.info(
+                    "Audio downloaded: %s (%.1f MB)", audio_path.name, file_size_mb
                 )
 
-            # --- Step 2: Send to OpenAI Whisper API ---
-            logger.info("Sending audio to Whisper API...")
+                # Whisper API limit is 25 MB
+                if file_size_mb > 25:
+                    raise RuntimeError(
+                        f"Audio file too large for Whisper API "
+                        f"({file_size_mb:.1f} MB > 25 MB limit)"
+                    )
 
-            client = AsyncOpenAI(api_key=settings.openai_api_key)
+                # --- Step 2: Send to OpenAI Whisper API ---
+                self.logger.info("Sending audio to Whisper API...")
 
-            with open(audio_path, "rb") as audio_file:
-                transcription = await client.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=audio_file,
-                    response_format="text",
+                with open(audio_path, "rb") as audio_file:
+                    transcription = await self.client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=audio_file,
+                        response_format="text",
+                    )
+
+                transcript_text = str(transcription).strip()
+
+                if not transcript_text:
+                    raise RuntimeError(
+                        f"Whisper returned empty transcription for video: {youtube_id}"
+                    )
+
+                self.logger.info(
+                    "Whisper transcription complete — %d characters",
+                    len(transcript_text),
                 )
+                return transcript_text, "whisper"
 
-            transcript_text = str(transcription).strip()
-
-            if not transcript_text:
-                raise RuntimeError(
-                    f"Whisper returned empty transcription for video: {youtube_id}"
-                )
-
-            logger.info(
-                "Whisper transcription complete — %d characters",
-                len(transcript_text),
+        except RuntimeError:
+            raise
+        except Exception as exc:
+            self.logger.error(
+                "Whisper transcription failed for %s: %s", youtube_id, exc
             )
-            return transcript_text, "whisper"
-
-    except RuntimeError:
-        raise
-    except Exception as exc:
-        logger.error(
-            "Whisper transcription failed for %s: %s", youtube_id, exc
-        )
-        raise RuntimeError(
-            f"Whisper transcription failed for video {youtube_id}: {exc}"
-        ) from exc
+            raise RuntimeError(
+                f"Whisper transcription failed for video {youtube_id}: {exc}"
+            ) from exc
