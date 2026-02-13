@@ -1,0 +1,96 @@
+/**
+ * API client for YouTube Knowledge Extractor backend.
+ */
+
+const API_BASE =
+    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+export interface VideoListItem {
+    id: string;
+    youtube_url: string;
+    youtube_id: string;
+    title: string | null;
+    thumbnail_url: string | null;
+    channel_name: string | null;
+    duration: number | null;
+    overview: string | null;
+    keywords: string[] | null;
+    transcript_source: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface Video extends VideoListItem {
+    detailed_summary: string | null;
+    key_takeaways: string | null;
+    notes: string | null;
+}
+
+export interface ApiError {
+    detail: string;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+async function request<T>(
+    path: string,
+    options?: RequestInit,
+): Promise<T> {
+    const res = await fetch(`${API_BASE}${path}`, {
+        headers: { "Content-Type": "application/json" },
+        ...options,
+    });
+
+    if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as ApiError | null;
+        throw new Error(body?.detail ?? `Request failed (${res.status})`);
+    }
+
+    // 204 No Content (e.g. DELETE)
+    if (res.status === 204) return undefined as unknown as T;
+
+    return res.json() as Promise<T>;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Public API                                                         */
+/* ------------------------------------------------------------------ */
+
+/** Submit a YouTube URL — triggers the full extraction pipeline. */
+export function createVideo(youtubeUrl: string) {
+    return request<Video>("/api/videos", {
+        method: "POST",
+        body: JSON.stringify({ youtube_url: youtubeUrl }),
+    });
+}
+
+/** List all videos, sorted newest first. */
+export function listVideos() {
+    return request<VideoListItem[]>("/api/videos");
+}
+
+/** Get a single video with full summary. */
+export function getVideo(id: string) {
+    return request<Video>(`/api/videos/${id}`);
+}
+
+/** Update user notes for a video. */
+export function updateVideoNotes(id: string, notes: string) {
+    return request<Video>(`/api/videos/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ notes }),
+    });
+}
+
+/** Delete a video entry. */
+export function deleteVideo(id: string) {
+    return request<void>(`/api/videos/${id}`, {
+        method: "DELETE",
+    });
+}

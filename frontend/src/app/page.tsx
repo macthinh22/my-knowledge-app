@@ -1,66 +1,123 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import VideoInput from "@/components/VideoInput";
+import LoadingState from "@/components/LoadingState";
+import SearchBar from "@/components/SearchBar";
+import VideoCard from "@/components/VideoCard";
+import { createVideo, listVideos, type VideoListItem } from "@/lib/api";
 import styles from "./page.module.css";
 
 export default function Home() {
+  const [videos, setVideos] = useState<VideoListItem[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [initialLoad, setInitialLoad] = useState(true);
+
+  /* ---- Fetch videos on mount ---- */
+  useEffect(() => {
+    listVideos()
+      .then(setVideos)
+      .catch(() => {
+        /* backend might not be running yet */
+      })
+      .finally(() => setInitialLoad(false));
+  }, []);
+
+  /* ---- Submit handler ---- */
+  const handleSubmit = useCallback(async (url: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      await createVideo(url);
+      const updated = await listVideos();
+      setVideos(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /* ---- Filtered list ---- */
+  const filtered = useMemo(() => {
+    if (!search.trim()) return videos;
+    const q = search.toLowerCase();
+    return videos.filter(
+      (v) =>
+        v.title?.toLowerCase().includes(q) ||
+        v.channel_name?.toLowerCase().includes(q) ||
+        v.keywords?.some((kw) => kw.toLowerCase().includes(q)),
+    );
+  }, [videos, search]);
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <>
+      <LoadingState visible={loading} />
+
+      <div className={styles.page}>
+        {/* Hero */}
+        <header className={styles.hero}>
+          <div className={styles.heroGlow} />
+          <h1 className={styles.heading}>
+            <span className={styles.headingLine}>YouTube</span>
+            <span className={`${styles.headingLine} gradient-text`}>
+              Knowledge Extractor
+            </span>
+          </h1>
+          <p className={styles.subtitle}>
+            Paste a video link. Get a structured summary in seconds.
           </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+          <VideoInput onSubmit={handleSubmit} disabled={loading} />
+
+          {error && <p className={styles.error}>{error}</p>}
+        </header>
+
+        {/* Toolbar */}
+        {videos.length > 0 && (
+          <div className={styles.toolbar}>
+            <SearchBar value={search} onChange={setSearch} />
+            <span className={styles.count}>
+              {filtered.length} {filtered.length === 1 ? "video" : "videos"}
+            </span>
+          </div>
+        )}
+
+        {/* Grid */}
+        {!initialLoad && filtered.length > 0 && (
+          <section className={styles.grid}>
+            {filtered.map((v, i) => (
+              <VideoCard key={v.id} video={v} index={i} />
+            ))}
+          </section>
+        )}
+
+        {/* Empty states */}
+        {!initialLoad && videos.length === 0 && !loading && (
+          <div className={styles.empty}>
+            <div className={styles.emptyIcon}>📚</div>
+            <h2 className={styles.emptyTitle}>No videos yet</h2>
+            <p className={styles.emptyText}>
+              Paste a YouTube URL above to extract your first knowledge summary.
+            </p>
+          </div>
+        )}
+
+        {!initialLoad &&
+          videos.length > 0 &&
+          filtered.length === 0 &&
+          search && (
+            <div className={styles.empty}>
+              <div className={styles.emptyIcon}>🔍</div>
+              <h2 className={styles.emptyTitle}>No matches</h2>
+              <p className={styles.emptyText}>
+                Try a different search term.
+              </p>
+            </div>
+          )}
+      </div>
+    </>
   );
 }

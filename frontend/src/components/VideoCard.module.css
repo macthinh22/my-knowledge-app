@@ -1,0 +1,151 @@
+.card {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-glass);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: all var(--transition-base);
+    animation: slideUp 500ms var(--ease-out-expo) both;
+    cursor: pointer;
+}
+
+.card:hover {
+    background: var(--bg-glass-hover);
+    border-color: rgba(0, 212, 255, 0.2);
+    transform: translateY(-4px);
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.45),
+        0 0 40px rgba(0, 212, 255, 0.06);
+}
+
+/* --- Thumbnail --- */
+.thumbnailWrap {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: var(--bg-tertiary);
+    overflow: hidden;
+}
+
+.thumbnail {
+    object-fit: cover;
+    transition: transform var(--transition-slow);
+}
+
+.card:hover .thumbnail {
+    transform: scale(1.04);
+}
+
+.thumbnailPlaceholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: var(--fg-muted);
+}
+
+.duration {
+    position: absolute;
+    bottom: var(--space-2);
+    right: var(--space-2);
+    padding: 3px 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.75);
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.03em;
+}
+
+/* Shimmer */
+.shimmer {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg,
+            transparent 30%,
+            rgba(255, 255, 255, 0.04) 50%,
+            transparent 70%);
+    background-size: 200% 100%;
+    opacity: 0;
+    transition: opacity var(--transition-base);
+}
+
+.card:hover .shimmer {
+    opacity: 1;
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* --- Content --- */
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-5) var(--space-5) var(--space-6);
+}
+
+.title {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--fg-primary);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--fg-tertiary);
+}
+
+.channel {
+    font-weight: 500;
+    color: var(--fg-secondary);
+}
+
+.meta .channel::after {
+    content: "·";
+    margin-left: var(--space-3);
+    color: var(--fg-muted);
+}
+
+.date {
+    white-space: nowrap;
+}
+
+.overview {
+    font-size: var(--text-base);
+    color: var(--fg-secondary);
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* --- Keywords --- */
+.keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-1);
+}
+
+.moreKeywords {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    font-size: var(--text-xs);
+    color: var(--fg-muted);
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: var(--radius-full);
+}
