@@ -12,6 +12,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [initialLoad, setInitialLoad] = useState(true);
 
   /* ---- Fetch videos on mount ---- */
@@ -28,16 +29,21 @@ export default function Home() {
   const handleSubmit = useCallback(async (url: string) => {
     setLoading(true);
     setError("");
+    setInfo("");
     try {
-      await createVideo(url);
+      const result = await createVideo(url);
+      const isDuplicate = videos.some((v) => v.id === result.id);
       const updated = await listVideos();
       setVideos(updated);
+      if (isDuplicate) {
+        setInfo("This video is already in your library.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [videos]);
 
   /* ---- Filtered list ---- */
   const filtered = useMemo(() => {
@@ -81,6 +87,16 @@ export default function Home() {
                          rounded-lg animate-[slideDown_250ms_ease-out]"
             >
               {error}
+            </p>
+          )}
+
+          {info && (
+            <p
+              className="px-5 py-2.5 text-sm text-[var(--accent)]
+                         bg-[var(--accent)]/8 border border-[var(--accent)]/20
+                         rounded-lg animate-[slideDown_250ms_ease-out]"
+            >
+              {info}
             </p>
           )}
         </header>

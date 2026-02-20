@@ -17,6 +17,8 @@ openai>=1.50.0
 # YouTube
 youtube-transcript-api>=0.6.0
 yt-dlp>=2024.0.0
+pydub>=0.25.0
+audioop-lts>=0.2.1  # backport for Python 3.13+
 
 # Email & Scheduling
 apscheduler>=3.10.0
