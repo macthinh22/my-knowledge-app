@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.services.summarizer import SummaryResult
+from app.services.summarizer import KnowledgeResult
 from app.services.youtube import VideoMetadata
 from tests.conftest import make_video
 
@@ -24,10 +24,11 @@ MOCK_METADATA = VideoMetadata(
     duration=212,
 )
 
-MOCK_SUMMARY = SummaryResult(
-    overview="A concise overview.",
-    detailed_summary="## Section\n- Point",
-    key_takeaways="- Takeaway",
+MOCK_ANALYSIS = KnowledgeResult(
+    explanation="Here is a clear explanation of the topic...",
+    key_knowledge="- Key insight 1\n- Key insight 2",
+    critical_analysis="**Strengths**: Well-argued.\n**Weaknesses**: Lacks examples.",
+    real_world_applications="- Application 1\n- Application 2",
     keywords=["test", "python"],
 )
 
@@ -50,7 +51,7 @@ class TestCreateVideo:
         mock_youtube.fetch_transcript = AsyncMock(
             return_value=("transcript text", "captions")
         )
-        mock_summarizer.summarize = AsyncMock(return_value=MOCK_SUMMARY)
+        mock_summarizer.analyze = AsyncMock(return_value=MOCK_ANALYSIS)
 
         res = await client.post(
             "/api/videos", json={"youtube_url": MOCK_YOUTUBE_URL}
@@ -111,7 +112,9 @@ class TestGetVideo:
         assert res.status_code == 200
         data = res.json()
         assert data["youtube_id"] == "dQw4w9WgXcQ"
-        assert data["detailed_summary"] is not None
+        assert data["explanation"] is not None
+        assert data["critical_analysis"] is not None
+        assert data["real_world_applications"] is not None
 
     @pytest.mark.asyncio
     async def test_get_nonexistent_video(self, client, fake_db):

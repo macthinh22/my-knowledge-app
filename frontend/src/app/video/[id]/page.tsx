@@ -160,11 +160,12 @@ export default function VideoPage({
         )}
       </header>
 
-      {/* Summary sections */}
+      {/* Knowledge analysis sections */}
       <VideoDetail
-        overview={video.overview}
-        detailedSummary={video.detailed_summary}
-        keyTakeaways={video.key_takeaways}
+        explanation={video.explanation}
+        keyKnowledge={video.key_knowledge}
+        criticalAnalysis={video.critical_analysis}
+        realWorldApplications={video.real_world_applications}
       />
 
       {/* Notes editor */}

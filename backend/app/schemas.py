@@ -28,9 +28,10 @@ class VideoResponse(BaseModel):
     thumbnail_url: str | None = None
     channel_name: str | None = None
     duration: int | None = None
-    overview: str | None = None
-    detailed_summary: str | None = None
-    key_takeaways: str | None = None
+    explanation: str | None = None
+    key_knowledge: str | None = None
+    critical_analysis: str | None = None
+    real_world_applications: str | None = None
     keywords: list[str] | None = None
     notes: str | None = None
     transcript_source: str | None = None
@@ -50,7 +51,8 @@ class VideoListResponse(BaseModel):
     thumbnail_url: str | None = None
     channel_name: str | None = None
     duration: int | None = None
-    overview: str | None = None
+    explanation: str | None = None
+    key_knowledge: str | None = None
     keywords: list[str] | None = None
     transcript_source: str | None = None
     created_at: datetime

@@ -1,4 +1,4 @@
-"""GPT-powered summarization service for video transcripts."""
+"""GPT-powered knowledge analysis service for video transcripts."""
 
 from dataclasses import dataclass
 
@@ -13,30 +13,48 @@ from app.logging_config import get_logger
 # ---------------------------------------------------------------------------
 
 
-class _SummarySchema(BaseModel):
+class _KnowledgeSchema(BaseModel):
     """Pydantic model used as OpenAI structured output format."""
 
-    overview: str = Field(
-        description="A concise 2-3 sentence overview of the video's main topic and purpose."
+    explanation: str = Field(
+        description=(
+            "A clear, mentor-like re-explanation of the content with explicit logical flow. "
+            "Use plain language to make complex ideas accessible, while preserving technical accuracy."
+        )
     )
-    detailed_summary: str = Field(
-        description="A section-by-section Markdown breakdown following the video's flow."
+    key_knowledge: str = Field(
+        description=(
+            "A concise summary highlighting the most important knowledge points from the video. "
+            "Combine a brief overview with the key insights, core principles, and essential takeaways "
+            "that the viewer should remember."
+        )
     )
-    key_takeaways: str = Field(
-        description="Bullet-point Markdown list of actionable insights worth remembering."
+    critical_analysis: str = Field(
+        description=(
+            "An objective analysis of the strengths and weaknesses of the ideas presented. "
+            "Strengths: what the concept does well and why it is compelling. "
+            "Weaknesses: limitations, hidden assumptions, edge cases, or gaps in the argument."
+        )
+    )
+    real_world_applications: str = Field(
+        description=(
+            "Concrete examples of how the knowledge can be applied in practice. "
+            "Connect ideas to real domains, industries, or personal contexts."
+        )
     )
     keywords: list[str] = Field(
-        description="5-10 descriptive tags for search and categorization."
+        description="5-10 lowercase descriptive tags for search and categorization."
     )
 
 
 @dataclass(frozen=True)
-class SummaryResult:
-    """Immutable result from the summarization pipeline."""
+class KnowledgeResult:
+    """Immutable result from the knowledge analysis pipeline."""
 
-    overview: str
-    detailed_summary: str
-    key_takeaways: str
+    explanation: str
+    key_knowledge: str
+    critical_analysis: str
+    real_world_applications: str
     keywords: list[str]
 
 
@@ -45,30 +63,49 @@ class SummaryResult:
 # ---------------------------------------------------------------------------
 
 _SYSTEM_PROMPT = """\
-You are a knowledge extraction expert. Your job is to transform a video transcript \
-into a structured, high-quality summary that helps the user learn and review the content later.
+You are a knowledgeable mentor and critical thinker. Your job is to take a video transcript \
+and transform it into a deep, structured knowledge analysis — not a summary. \
+Your goal is to help the viewer truly understand, evaluate, and apply what they watched.
+
+Adopt a tone that is between conversational and technical: clear and accessible, \
+but precise and intellectually rigorous. Think of how a great professor explains things.
+
+**IMPORTANT: You MUST write ALL output content in Vietnamese (Tiếng Việt). \
+This includes explanation, critical_analysis, real_world_applications, and keywords. \
+Even if the original video is in English or another language, your output must be entirely in Vietnamese.**
 
 ## Output Requirements
 
-### overview
-- Write 2-3 sentences that capture the video's main topic, who it's for, and the core value.
-- Be specific — mention the subject matter, not just "this video discusses…".
+### explanation
+- Re-explain the content as if you are teaching it from scratch to an intelligent student.
+- Use a clear cause-and-effect or step-by-step logical flow.
+- Break down jargon. Use analogies where helpful.
+- Preserve technical accuracy — don't oversimplify formulas, code, or precise definitions.
+- Write in Markdown with sections and bullet points.
 
-### detailed_summary
-- Write in Markdown with `##` section headers that follow the video's natural flow.
-- Under each section, use bullet points for key points, examples, and explanations.
-- Preserve important details, code snippets, formulas, or specific advice.
-- Aim for depth — this should be useful as a standalone study reference.
+### key_knowledge
+- Write a concise summary that captures the most important knowledge from the video.
+- Highlight key insights, core principles, essential takeaways, and critical facts.
+- Use Markdown bullet points. Each point should be a standalone piece of knowledge worth remembering.
+- Aim for 5-8 bullet points that together form a complete picture of what matters most.
 
-### key_takeaways
-- Write 4-8 bullet points using Markdown (`-` list).
-- Focus on actionable insights, surprising facts, or core principles.
-- Each point should stand alone and be meaningful without the full context.
+### critical_analysis
+- Analyze the **strengths** of the ideas: why they are compelling, well-founded, or innovative.
+- Analyze the **weaknesses**: limitations, assumptions that may not hold, missing context, \
+  counterarguments, or edge cases the video ignores.
+- Be objective and specific — cite the actual ideas from the video, not vague generalities.
+- Write in Markdown with clearly labeled Strengths and Weaknesses sections.
+
+### real_world_applications
+- Give 3-5 concrete examples of how this knowledge can be applied in practice.
+- Connect ideas to real domains: industry, research, daily life, or adjacent fields.
+- For each application, explain briefly *why* this knowledge is relevant there.
+- Write in Markdown with a bullet list or numbered examples.
 
 ### keywords
 - Generate 5-10 lowercase tags relevant to the video's content.
 - Include the main topic, technologies, concepts, and domain.
-- Example: ["python", "web scraping", "beautifulsoup", "data extraction", "tutorial"]
+- Example: ["python", "lập trình bất đồng bộ", "event loop", "đồng thời", "backend"]
 """
 
 
@@ -78,27 +115,28 @@ into a structured, high-quality summary that helps the user learn and review the
 
 
 class SummarizerService:
-    """Service for summarizing video transcripts using OpenAI GPT."""
+    """Service for analyzing video transcripts using OpenAI GPT."""
 
     def __init__(self) -> None:
         self.logger = get_logger(__name__)
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
 
-    async def summarize(self, transcript: str, title: str) -> SummaryResult:
-        """Summarize a video transcript into structured sections.
+    async def analyze(self, transcript: str, title: str) -> KnowledgeResult:
+        """Analyze a video transcript into structured knowledge sections.
 
         Args:
             transcript: The full transcript text.
             title: The video title (provides context to the model).
 
         Returns:
-            A SummaryResult with overview, detailed_summary, key_takeaways, and keywords.
+            A KnowledgeResult with explanation, critical_analysis,
+            real_world_applications, and keywords.
 
         Raises:
             RuntimeError: If the OpenAI API call fails.
         """
         self.logger.info(
-            "Summarizing transcript for '%s' (%d chars)", title, len(transcript)
+            "Analyzing transcript for '%s' (%d chars)", title, len(transcript)
         )
 
         user_message = f"## Video Title\n{title}\n\n## Transcript\n{transcript}"
@@ -111,7 +149,7 @@ class SummarizerService:
                     {"role": "system", "content": _SYSTEM_PROMPT},
                     {"role": "user", "content": user_message},
                 ],
-                response_format=_SummarySchema,
+                response_format=_KnowledgeSchema,
             )
 
             parsed = response.choices[0].message.parsed
@@ -121,17 +159,17 @@ class SummarizerService:
                     "OpenAI returned no parsed content — possible refusal or empty response."
                 )
 
-            result = SummaryResult(
-                overview=parsed.overview,
-                detailed_summary=parsed.detailed_summary,
-                key_takeaways=parsed.key_takeaways,
+            result = KnowledgeResult(
+                explanation=parsed.explanation,
+                key_knowledge=parsed.key_knowledge,
+                critical_analysis=parsed.critical_analysis,
+                real_world_applications=parsed.real_world_applications,
                 keywords=parsed.keywords,
             )
 
             self.logger.info(
-                "Summary complete — overview=%d chars, detailed=%d chars, keywords=%s",
-                len(result.overview),
-                len(result.detailed_summary),
+                "Analysis complete — explanation=%d chars, keywords=%s",
+                len(result.explanation),
                 result.keywords,
             )
             return result
@@ -139,5 +177,5 @@ class SummarizerService:
         except RuntimeError:
             raise
         except Exception as exc:
-            self.logger.error("Summarization failed for '%s': %s", title, exc)
-            raise RuntimeError(f"Summarization failed: {exc}") from exc
+            self.logger.error("Analysis failed for '%s': %s", title, exc)
+            raise RuntimeError(f"Analysis failed: {exc}") from exc

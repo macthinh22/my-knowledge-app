@@ -23,10 +23,11 @@ class Video(Base):
     channel_name: Mapped[str | None] = mapped_column(String(255))
     duration: Mapped[int | None] = mapped_column(Integer)
 
-    # Summary fields
-    overview: Mapped[str | None] = mapped_column(Text)
-    detailed_summary: Mapped[str | None] = mapped_column(Text)
-    key_takeaways: Mapped[str | None] = mapped_column(Text)
+    # Knowledge analysis fields
+    explanation: Mapped[str | None] = mapped_column(Text)
+    key_knowledge: Mapped[str | None] = mapped_column(Text)
+    critical_analysis: Mapped[str | None] = mapped_column(Text)
+    real_world_applications: Mapped[str | None] = mapped_column(Text)
     keywords: Mapped[list[str] | None] = mapped_column(ARRAY(String))
 
     # User content

@@ -77,9 +77,9 @@ async def create_video(body: VideoCreate, db: AsyncSession = Depends(get_db)):
                 status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
             ) from exc
 
-    # 5. Summarize
+    # 5. Analyze
     try:
-        summary = await summarizer_service.summarize(transcript, metadata.title)
+        analysis = await summarizer_service.analyze(transcript, metadata.title)
     except RuntimeError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
@@ -93,10 +93,11 @@ async def create_video(body: VideoCreate, db: AsyncSession = Depends(get_db)):
         thumbnail_url=metadata.thumbnail_url,
         channel_name=metadata.channel_name,
         duration=metadata.duration,
-        overview=summary.overview,
-        detailed_summary=summary.detailed_summary,
-        key_takeaways=summary.key_takeaways,
-        keywords=summary.keywords,
+        explanation=analysis.explanation,
+        key_knowledge=analysis.key_knowledge,
+        critical_analysis=analysis.critical_analysis,
+        real_world_applications=analysis.real_world_applications,
+        keywords=analysis.keywords,
         transcript_source=transcript_source,
     )
     db.add(video)

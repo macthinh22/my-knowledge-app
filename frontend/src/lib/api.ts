@@ -17,7 +17,8 @@ export interface VideoListItem {
     thumbnail_url: string | null;
     channel_name: string | null;
     duration: number | null;
-    overview: string | null;
+    explanation: string | null;
+    key_knowledge: string | null;
     keywords: string[] | null;
     transcript_source: string | null;
     created_at: string;
@@ -25,8 +26,8 @@ export interface VideoListItem {
 }
 
 export interface Video extends VideoListItem {
-    detailed_summary: string | null;
-    key_takeaways: string | null;
+    critical_analysis: string | null;
+    real_world_applications: string | null;
     notes: string | null;
 }
 
@@ -75,7 +76,7 @@ export function listVideos() {
     return request<VideoListItem[]>("/api/videos");
 }
 
-/** Get a single video with full summary. */
+/** Get a single video with full analysis. */
 export function getVideo(id: string) {
     return request<Video>(`/api/videos/${id}`);
 }
