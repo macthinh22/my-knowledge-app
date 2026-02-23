@@ -126,7 +126,7 @@ class TranscriptionService:
     async def _transcribe_in_chunks(
         self, audio_path: Path, file_size_mb: float, tmp_dir: str
     ) -> str:
-        """Split the audio into chunks and transcribe each one.
+        """Split the audio into chunks and transcribe them in parallel.
 
         Args:
             audio_path: Path to the full MP3 file.
@@ -136,9 +136,11 @@ class TranscriptionService:
         Returns:
             Combined transcript text from all chunks.
         """
+        import asyncio
+
         num_chunks = int(file_size_mb / _CHUNK_TARGET_MB) + 1
         self.logger.info(
-            "File is %.1f MB — splitting into %d chunks for Whisper",
+            "File is %.1f MB — splitting into %d chunks for parallel Whisper transcription",
             file_size_mb,
             num_chunks,
         )
@@ -146,10 +148,10 @@ class TranscriptionService:
         audio = AudioSegment.from_mp3(audio_path)
         chunk_duration_ms = len(audio) // num_chunks
 
-        parts: list[str] = []
+        # Export all chunks first
+        chunk_paths: list[Path] = []
         for i in range(num_chunks):
             start_ms = i * chunk_duration_ms
-            # Last chunk takes whatever remains
             end_ms = len(audio) if i == num_chunks - 1 else start_ms + chunk_duration_ms
 
             chunk = audio[start_ms:end_ms]
@@ -158,10 +160,15 @@ class TranscriptionService:
 
             chunk_size_mb = chunk_path.stat().st_size / (1024 * 1024)
             self.logger.info(
-                "Transcribing chunk %d/%d (%.1f MB)...", i + 1, num_chunks, chunk_size_mb
+                "Prepared chunk %d/%d (%.1f MB)", i + 1, num_chunks, chunk_size_mb
             )
+            chunk_paths.append(chunk_path)
 
-            part = await self._transcribe_file(chunk_path)
-            parts.append(part)
+        # Transcribe all chunks in parallel
+        self.logger.info("Sending %d chunks to Whisper in parallel...", num_chunks)
+        parts = await asyncio.gather(
+            *(self._transcribe_file(path) for path in chunk_paths)
+        )
 
+        self.logger.info("All %d chunks transcribed successfully", num_chunks)
         return " ".join(parts)
