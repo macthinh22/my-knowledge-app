@@ -1,88 +1,57 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { Save, Loader2, Check, AlertCircle } from "lucide-react";
 import { updateVideoNotes } from "@/lib/api";
 
 interface NotesEditorProps {
   videoId: string;
-  initialNotes: string | null;
+  initialNotes: string;
 }
 
-type SaveStatus = "idle" | "saving" | "saved" | "error";
-
-export default function NotesEditor({
-  videoId,
-  initialNotes,
-}: NotesEditorProps) {
-  const [notes, setNotes] = useState(initialNotes ?? "");
-  const [status, setStatus] = useState<SaveStatus>("idle");
+export function NotesEditor({ videoId, initialNotes }: NotesEditorProps) {
+  const [notes, setNotes] = useState(initialNotes);
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
 
-  /* Reset when video changes */
   useEffect(() => {
-    setNotes(initialNotes ?? "");
+    setNotes(initialNotes);
     setStatus("idle");
   }, [videoId, initialNotes]);
 
-  const save = useCallback(
-    async (value: string) => {
-      if (value === (initialNotes ?? "")) return;
-      setStatus("saving");
-      try {
-        await updateVideoNotes(videoId, value);
-        setStatus("saved");
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => setStatus("idle"), 2500);
-      } catch {
-        setStatus("error");
-      }
-    },
-    [videoId, initialNotes],
-  );
+  const save = useCallback(async () => {
+    if (notes === initialNotes) return;
+    setStatus("saving");
+    try {
+      await updateVideoNotes(videoId, notes);
+      setStatus("saved");
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setStatus("idle"), 2500);
+    } catch {
+      setStatus("error");
+    }
+  }, [videoId, notes, initialNotes]);
 
   return (
-    <div
-      className="bg-[var(--bg-secondary)] border border-[var(--border-primary)]
-                 rounded-xl p-8 animate-[fadeIn_500ms_ease-out]"
-    >
-      <div
-        className="flex items-center justify-between mb-5 pb-4
-                    border-b border-[var(--border-primary)]"
-      >
-        <h2
-          className="font-[var(--font-heading)] text-xl font-bold
-                     text-[var(--fg-primary)]"
-        >
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <label htmlFor="notes" className="text-sm font-medium">
           Personal Notes
-        </h2>
-        <span
-          className={`text-xs font-medium whitespace-nowrap transition-all duration-150
-            ${status === "idle" ? "text-transparent" : ""}
-            ${status === "saving" ? "text-[var(--fg-muted)]" : ""}
-            ${status === "saved" ? "text-[var(--color-success)]" : ""}
-            ${status === "error" ? "text-[var(--color-error)]" : ""}`}
-        >
-          {status === "saving" && "Saving..."}
-          {status === "saved" && "Saved"}
-          {status === "error" && "Save failed"}
+        </label>
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          {status === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> Saving...</>}
+          {status === "saved" && <><Check className="h-3 w-3 text-green-500" /> Saved</>}
+          {status === "error" && <><AlertCircle className="h-3 w-3 text-destructive" /> Failed to save</>}
+          {status === "idle" && <><Save className="h-3 w-3" /> Auto-saves on blur</>}
         </span>
       </div>
       <textarea
-        id="notes-editor"
-        className="w-full min-h-[160px] p-5
-                   font-[var(--font-body)] text-base leading-7
-                   text-[var(--fg-primary)] bg-[var(--bg-tertiary)]
-                   border border-[var(--border-primary)] rounded-lg
-                   resize-y transition-all duration-200 outline-none
-                   placeholder:text-[var(--fg-muted)]
-                   focus:border-[var(--border-focus)]
-                   focus:shadow-[0_0_0_3px_var(--accent-subtle)]"
+        id="notes"
+        className="min-h-[200px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
+        placeholder="Write your notes about this video..."
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        onBlur={() => save(notes)}
-        placeholder="Add your personal notes, reflections, or action items here..."
-        rows={6}
-        spellCheck
+        onBlur={save}
       />
     </div>
   );

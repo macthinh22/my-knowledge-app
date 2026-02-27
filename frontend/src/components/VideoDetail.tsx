@@ -1,57 +1,73 @@
+"use client";
+
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { BookOpen, Lightbulb, AlertTriangle, Globe } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import type { Video } from "@/lib/api";
+import { NotesEditor } from "./NotesEditor";
 
 interface VideoDetailProps {
-  explanation: string | null;
-  keyKnowledge: string | null;
-  criticalAnalysis: string | null;
-  realWorldApplications: string | null;
+  video: Video;
 }
 
-function Section({
-  icon,
-  title,
-  content,
-}: {
-  icon: string;
-  title: string;
-  content: string | null;
-}) {
-  if (!content) return null;
+const sections = [
+  { key: "explanation", label: "Explanation", icon: BookOpen, field: "explanation" as const },
+  { key: "key_knowledge", label: "Key Knowledge", icon: Lightbulb, field: "key_knowledge" as const },
+  { key: "critical_analysis", label: "Critical Analysis", icon: AlertTriangle, field: "critical_analysis" as const },
+  { key: "real_world_applications", label: "Real-World Applications", icon: Globe, field: "real_world_applications" as const },
+];
+
+export function VideoDetail({ video }: VideoDetailProps) {
+  const activeSections = sections.filter((s) => video[s.field]);
 
   return (
-    <section
-      className="bg-[var(--bg-secondary)] border border-[var(--border-primary)]
-                 rounded-xl p-8 transition-colors duration-200"
-    >
-      <h2
-        className="font-[var(--font-heading)] text-xl font-bold
-                   text-[var(--fg-primary)] mb-6 pb-4
-                   border-b border-[var(--border-primary)]
-                   tracking-tight flex items-center gap-2"
-      >
-        <span>{icon}</span>
-        {title}
-      </h2>
-      <div className="prose">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-      </div>
-    </section>
-  );
-}
+    <Tabs defaultValue="analysis" className="h-full">
+      <TabsList className="w-full">
+        <TabsTrigger value="analysis" className="flex-1">Analysis</TabsTrigger>
+        <TabsTrigger value="notes" className="flex-1">Notes</TabsTrigger>
+      </TabsList>
 
-export default function VideoDetail({
-  explanation,
-  keyKnowledge,
-  criticalAnalysis,
-  realWorldApplications,
-}: VideoDetailProps) {
-  return (
-    <div className="flex flex-col gap-8 animate-[fadeIn_500ms_ease-out]">
-      <Section icon="💡" title="Giải thích" content={explanation} />
-      <Section icon="🔑" title="Tóm tắt & Kiến thức cốt lõi" content={keyKnowledge} />
-      <Section icon="⚖️" title="Phân tích phản biện" content={criticalAnalysis} />
-      <Section icon="🌍" title="Ứng dụng thực tế" content={realWorldApplications} />
-    </div>
+      <TabsContent value="analysis" className="mt-4">
+        {activeSections.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-8 text-center">
+            No analysis available for this video.
+          </p>
+        ) : (
+          <Accordion type="multiple" defaultValue={activeSections.map((s) => s.key)}>
+            {activeSections.map((section) => {
+              const Icon = section.icon;
+              return (
+                <AccordionItem key={section.key} value={section.key}>
+                  <AccordionTrigger className="text-sm font-medium">
+                    <span className="flex items-center gap-2">
+                      <Icon className="h-4 w-4" />
+                      {section.label}
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {video[section.field] || ""}
+                      </ReactMarkdown>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        )}
+      </TabsContent>
+
+      <TabsContent value="notes" className="mt-4">
+        <NotesEditor videoId={video.id} initialNotes={video.notes || ""} />
+      </TabsContent>
+    </Tabs>
   );
 }

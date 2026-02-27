@@ -1,32 +1,18 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft, Clock, Calendar } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+import { YouTubeEmbed } from "@/components/YouTubeEmbed";
+import { VideoDetail } from "@/components/VideoDetail";
+import { DeleteButton } from "@/components/DeleteButton";
 import { getVideo, type Video } from "@/lib/api";
-import YouTubeEmbed from "@/components/YouTubeEmbed";
-import VideoDetail from "@/components/VideoDetail";
-import NotesEditor from "@/components/NotesEditor";
-import DeleteButton from "@/components/DeleteButton";
-import KeywordBadge from "@/components/KeywordBadge";
-
-function formatDuration(seconds: number | null): string {
-  if (!seconds) return "";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0)
-    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+import { formatDuration } from "@/lib/format";
 
 export default function VideoPage({
   params,
@@ -34,146 +20,103 @@ export default function VideoPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const [video, setVideo] = useState<Video | null>(null);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    setLoading(true);
     getVideo(id)
       .then(setVideo)
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Video not found"),
-      )
+      .catch(() => setError("Failed to load video"))
       .finally(() => setLoading(false));
   }, [id]);
 
-  /* --- Loading skeleton --- */
   if (loading) {
     return (
-      <div className="min-h-screen max-w-[920px] mx-auto px-6 py-8 flex flex-col gap-6 animate-[fadeIn_300ms_ease]">
-        <div className="w-full aspect-video rounded-xl bg-[var(--bg-tertiary)] animate-[shimmer_1.8s_ease-in-out_infinite] bg-[length:200%_100%] bg-gradient-to-r from-[var(--bg-tertiary)] via-[var(--border-primary)] to-[var(--bg-tertiary)]" />
-        <div className="h-10 w-3/4 rounded-xl bg-[var(--bg-tertiary)] animate-[shimmer_1.8s_ease-in-out_infinite] bg-[length:200%_100%] bg-gradient-to-r from-[var(--bg-tertiary)] via-[var(--border-primary)] to-[var(--bg-tertiary)]" />
-        <div className="h-5 w-2/5 rounded-lg bg-[var(--bg-tertiary)] animate-[shimmer_1.8s_ease-in-out_infinite] bg-[length:200%_100%] bg-gradient-to-r from-[var(--bg-tertiary)] via-[var(--border-primary)] to-[var(--bg-tertiary)]" />
-        <div className="h-72 rounded-xl bg-[var(--bg-tertiary)] animate-[shimmer_1.8s_ease-in-out_infinite] bg-[length:200%_100%] bg-gradient-to-r from-[var(--bg-tertiary)] via-[var(--border-primary)] to-[var(--bg-tertiary)]" />
+      <div className="min-h-screen bg-background p-6">
+        <Skeleton className="h-6 w-32 mb-6" />
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="lg:w-3/5">
+            <Skeleton className="aspect-video w-full rounded-lg" />
+            <Skeleton className="mt-4 h-6 w-3/4" />
+            <Skeleton className="mt-2 h-4 w-1/2" />
+          </div>
+          <div className="lg:w-2/5 space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+        </div>
       </div>
     );
   }
 
-  /* --- Error state --- */
   if (error || !video) {
     return (
-      <div className="min-h-screen max-w-[920px] mx-auto px-6 py-8">
-        <div className="flex flex-col items-center gap-4 py-20 px-8 text-center animate-[fadeIn_500ms_ease-out]">
-          <span className="text-5xl leading-none">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--fg-muted)]">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-          </span>
-          <h2 className="font-[var(--font-heading)] text-xl font-semibold text-[var(--fg-secondary)]">
-            Video not found
-          </h2>
-          <p className="text-sm text-[var(--fg-tertiary)] max-w-sm leading-relaxed">
-            {error || "This video doesn't exist or was deleted."}
-          </p>
-          <Link
-            href="/"
-            className="text-sm font-medium text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors"
-          >
-            &larr; Back to library
-          </Link>
-        </div>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background">
+        <p className="text-destructive mb-4">{error || "Video not found"}</p>
+        <Button variant="outline" onClick={() => router.push("/")}>
+          Back to library
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen max-w-[920px] mx-auto px-6 py-8 flex flex-col gap-8 max-sm:px-4 max-sm:gap-6">
-      {/* Back navigation */}
-      <Link
-        href="/"
-        className="inline-flex items-center gap-2 text-sm font-medium
-                   text-[var(--fg-secondary)] hover:text-[var(--accent)]
-                   transition-colors animate-[fadeIn_300ms_ease-out]"
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+    <div className="min-h-screen bg-background">
+      <div className="border-b border-border px-6 py-3">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          <line x1="19" y1="12" x2="5" y2="12" />
-          <polyline points="12 19 5 12 12 5" />
-        </svg>
-        Back to library
-      </Link>
+          <ArrowLeft className="h-4 w-4" />
+          Back to library
+        </Link>
+      </div>
 
-      {/* YouTube player */}
-      <YouTubeEmbed youtubeId={video.youtube_id} title={video.title ?? undefined} />
+      <div className="flex flex-col lg:flex-row gap-6 p-6">
+        {/* Left panel - player + metadata */}
+        <div className="lg:w-3/5">
+          <div className="lg:sticky lg:top-6">
+            <YouTubeEmbed youtubeId={video.youtube_id} title={video.title ?? "Video"} />
 
-      {/* Header */}
-      <header
-        className="flex flex-col gap-4 pb-8 border-b border-[var(--border-primary)]
-                   animate-[slideUp_400ms_ease-out]"
-      >
-        <h1
-          className="font-[var(--font-heading)] text-4xl font-bold leading-snug
-                     text-[var(--fg-primary)] tracking-tight max-sm:text-2xl"
-        >
-          {video.title ?? "Untitled"}
-        </h1>
-        <div className="flex items-center flex-wrap gap-2.5 text-sm text-[var(--fg-tertiary)] max-sm:text-xs">
-          {video.channel_name && (
-            <span className="font-semibold text-[var(--fg-secondary)]">
-              {video.channel_name}
-            </span>
-          )}
-          {video.duration && (
-            <span className="before:content-['·'] before:mr-2.5 before:text-[var(--fg-muted)]">
-              {formatDuration(video.duration)}
-            </span>
-          )}
-          <span className="before:content-['·'] before:mr-2.5 before:text-[var(--fg-muted)]">
-            {formatDate(video.created_at)}
-          </span>
-          {video.transcript_source && (
-            <span className="before:content-['·'] before:mr-2.5 before:text-[var(--fg-muted)]">
-              {video.transcript_source === "captions"
-                ? "Captions"
-                : "Whisper"}
-            </span>
-          )}
+            <div className="mt-4">
+              <h1 className="text-xl font-semibold">{video.title ?? "Untitled"}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                {video.channel_name && <span>{video.channel_name}</span>}
+                {video.duration && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    {formatDuration(video.duration)}
+                  </span>
+                )}
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {new Date(video.created_at).toLocaleDateString()}
+                </span>
+              </div>
+
+              {video.keywords && video.keywords.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {video.keywords.map((kw) => (
+                    <Badge key={kw} variant="secondary">
+                      {kw}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              <Separator className="my-4" />
+
+              <DeleteButton videoId={video.id} videoTitle={video.title} />
+            </div>
+          </div>
         </div>
 
-        {video.keywords && video.keywords.length > 0 && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {video.keywords.map((kw) => (
-              <KeywordBadge key={kw} keyword={kw} />
-            ))}
-          </div>
-        )}
-      </header>
-
-      {/* Knowledge analysis sections */}
-      <VideoDetail
-        explanation={video.explanation}
-        keyKnowledge={video.key_knowledge}
-        criticalAnalysis={video.critical_analysis}
-        realWorldApplications={video.real_world_applications}
-      />
-
-      {/* Notes editor */}
-      <NotesEditor videoId={video.id} initialNotes={video.notes} />
-
-      {/* Actions */}
-      <div className="flex justify-end pt-4 border-t border-[var(--border-primary)] animate-[fadeIn_500ms_ease-out]">
-        <DeleteButton videoId={video.id} videoTitle={video.title} />
+        {/* Right panel - analysis + notes */}
+        <div className="lg:w-2/5">
+          <VideoDetail video={video} />
+        </div>
       </div>
     </div>
   );
