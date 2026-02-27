@@ -1,120 +1,65 @@
-import Image from "next/image";
 import Link from "next/link";
-import KeywordBadge from "./KeywordBadge";
+import Image from "next/image";
+import { Clock, Play } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import type { VideoListItem } from "@/lib/api";
+import { formatDuration } from "@/lib/format";
 
 interface VideoCardProps {
   video: VideoListItem;
-  index?: number;
 }
 
-function formatDuration(seconds: number | null): string {
-  if (!seconds) return "";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0)
-    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-export default function VideoCard({ video, index = 0 }: VideoCardProps) {
-  const delay = `${index * 80}ms`;
+export function VideoCard({ video }: VideoCardProps) {
+  const thumbnail = video.thumbnail_url
+    ?? `https://i.ytimg.com/vi/${video.youtube_id}/hqdefault.jpg`;
 
   return (
-    <Link
-      href={`/video/${video.id}`}
-      className="group flex flex-col bg-[var(--bg-secondary)]
-                 border border-[var(--border-primary)] rounded-xl overflow-hidden
-                 transition-all duration-250 cursor-pointer
-                 hover:border-[var(--border-secondary)]
-                 hover:-translate-y-1 hover:shadow-[var(--shadow-md)]
-                 animate-[slideUp_500ms_ease-out_both]"
-      style={{ animationDelay: delay }}
-    >
-      {/* Thumbnail */}
-      <div className="relative aspect-video bg-[var(--bg-tertiary)] overflow-hidden">
-        {video.thumbnail_url ? (
+    <Link href={`/video/${video.id}`} className="group block">
+      <div className="overflow-hidden rounded-lg bg-card shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+        <div className="relative aspect-video overflow-hidden">
           <Image
-            className="object-cover transition-transform duration-500
-                       group-hover:scale-[1.03]"
-            src={video.thumbnail_url}
+            src={thumbnail}
             alt={video.title ?? "Video thumbnail"}
             fill
+            className="object-cover transition-transform duration-200 group-hover:scale-105"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
-        ) : (
-          <div className="flex items-center justify-center w-full h-full text-[var(--fg-muted)]">
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              opacity="0.3"
-            >
-              <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
-            </svg>
-          </div>
-        )}
-        {video.duration && (
-          <span
-            className="absolute bottom-2 right-2 px-2 py-0.5
-                       font-mono text-xs font-medium text-white
-                       bg-black/75 rounded"
-          >
-            {formatDuration(video.duration)}
-          </span>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="flex flex-col gap-2.5 p-5 pb-6">
-        <h3
-          className="font-[var(--font-heading)] text-lg font-semibold leading-snug
-                     text-[var(--fg-primary)] line-clamp-2"
-        >
-          {video.title ?? "Untitled"}
-        </h3>
-
-        <div className="flex items-center gap-2.5 text-sm text-[var(--fg-tertiary)]">
-          {video.channel_name && (
-            <span className="font-medium text-[var(--fg-secondary)] after:content-['·'] after:ml-2.5 after:text-[var(--fg-muted)]">
-              {video.channel_name}
+          {video.duration && (
+            <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded bg-black/80 px-1.5 py-0.5 text-xs font-medium text-white">
+              <Clock className="h-3 w-3" />
+              {formatDuration(video.duration)}
             </span>
           )}
-          <span className="whitespace-nowrap">{formatDate(video.created_at)}</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/10">
+            <Play className="h-10 w-10 text-white opacity-0 transition-opacity group-hover:opacity-80" fill="white" />
+          </div>
         </div>
 
-        {video.overview && (
-          <p className="text-base text-[var(--fg-secondary)] leading-relaxed line-clamp-3">
-            {video.overview}
+        <div className="p-3">
+          <h3 className="line-clamp-2 text-sm font-medium leading-snug">
+            {video.title ?? "Untitled"}
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {video.channel_name}
           </p>
-        )}
-
-        {video.keywords && video.keywords.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-1">
-            {video.keywords.slice(0, 4).map((kw) => (
-              <KeywordBadge key={kw} keyword={kw} />
-            ))}
-            {video.keywords.length > 4 && (
-              <span
-                className="inline-flex items-center px-2.5 py-1
-                           text-xs text-[var(--fg-muted)]
-                           bg-[var(--bg-tertiary)] rounded-full"
-              >
-                +{video.keywords.length - 4}
-              </span>
-            )}
-          </div>
-        )}
+          <p className="text-xs text-muted-foreground">
+            {new Date(video.created_at).toLocaleDateString()}
+          </p>
+          {video.keywords && video.keywords.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {video.keywords.slice(0, 3).map((kw) => (
+                <Badge key={kw} variant="secondary" className="text-[10px] px-1.5 py-0">
+                  {kw}
+                </Badge>
+              ))}
+              {video.keywords.length > 3 && (
+                <span className="text-[10px] text-muted-foreground self-center">
+                  +{video.keywords.length - 3}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </Link>
   );
