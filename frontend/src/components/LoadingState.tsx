@@ -1,94 +1,54 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Loader2, Check } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-const STEPS = [
-  { label: "Extracting video info", icon: "1" },
-  { label: "Fetching transcript", icon: "2" },
-  { label: "Generating summary", icon: "3" },
-  { label: "Storing knowledge", icon: "4" },
+const steps = [
+  "Fetching video information",
+  "Downloading audio",
+  "Transcribing content",
+  "Analyzing knowledge",
 ];
 
-interface LoadingStateProps {
-  visible: boolean;
-}
-
-export default function LoadingState({ visible }: LoadingStateProps) {
-  const [step, setStep] = useState(0);
+export function LoadingState() {
+  const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
-    if (!visible) {
-      setStep(0);
-      return;
-    }
-
     const interval = setInterval(() => {
-      setStep((prev) => (prev < STEPS.length - 1 ? prev + 1 : prev));
+      setCurrentStep((prev) => (prev < steps.length - 1 ? prev + 1 : prev));
     }, 4000);
-
     return () => clearInterval(interval);
-  }, [visible]);
-
-  if (!visible) return null;
+  }, []);
 
   return (
-    <div
-      className="fixed inset-0 z-100 flex items-center justify-center
-                 bg-[var(--bg-overlay)] backdrop-blur-sm
-                 animate-[fadeIn_300ms_ease-out]"
-    >
-      <div
-        className="flex flex-col items-center gap-8
-                    min-w-[340px] px-10 py-12
-                    bg-[var(--bg-secondary)] border border-[var(--border-primary)]
-                    rounded-2xl shadow-[var(--shadow-lg)]
-                    animate-[slideUp_400ms_ease-out]"
-      >
-        {/* Spinner */}
-        <div className="relative w-16 h-16">
-          <div
-            className="absolute inset-0 rounded-full border-2 border-[var(--border-primary)]
-                        border-t-[var(--accent)] animate-spin"
-          />
-          <div className="absolute inset-3 rounded-full bg-[var(--accent-subtle)] flex items-center justify-center">
-            <span className="text-xs font-semibold text-[var(--accent)]">
-              {step + 1}/{STEPS.length}
-            </span>
-          </div>
-        </div>
-
-        {/* Steps */}
-        <div className="flex flex-col gap-3 w-full">
-          {STEPS.map((s, i) => (
-            <div
-              key={s.label}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200
-                ${i === step ? "text-[var(--fg-primary)] bg-[var(--accent-subtle)] font-medium" : ""}
-                ${i < step ? "text-[var(--fg-tertiary)]" : ""}
-                ${i > step ? "text-[var(--fg-muted)]" : ""}`}
-            >
-              <span
-                className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-semibold
-                  ${i < step ? "bg-[var(--color-success)] text-white" : ""}
-                  ${i === step ? "bg-[var(--accent)] text-white" : ""}
-                  ${i > step ? "bg-[var(--bg-tertiary)] text-[var(--fg-muted)]" : ""}`}
-              >
-                {i < step ? "✓" : s.icon}
-              </span>
-              <span className="flex-1">{s.label}</span>
-              {i === step && (
-                <span className="text-[var(--accent)] font-semibold animate-pulse">
-                  ...
-                </span>
+    <Dialog open>
+      <DialogContent className="sm:max-w-sm" onInteractOutside={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle>Extracting Knowledge</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          {steps.map((step, i) => (
+            <div key={step} className="flex items-center gap-3 text-sm">
+              {i < currentStep ? (
+                <Check className="h-4 w-4 text-green-500 shrink-0" />
+              ) : i === currentStep ? (
+                <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+              ) : (
+                <div className="h-4 w-4 rounded-full border border-border shrink-0" />
               )}
+              <span className={i > currentStep ? "text-muted-foreground" : ""}>
+                {step}
+              </span>
             </div>
           ))}
         </div>
-
-        <p className="text-xs text-[var(--fg-muted)] text-center">
-          This may take a minute for longer videos
-        </p>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
