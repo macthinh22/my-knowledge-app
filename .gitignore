@@ -56,3 +56,4 @@ yarn-error.log*
 # Claude / Agent
 .agent/
 .claude/
+.worktrees/
