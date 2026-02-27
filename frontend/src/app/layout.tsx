@@ -1,53 +1,39 @@
 import type { Metadata } from "next";
-import { Source_Serif_4, DM_Sans } from "next/font/google";
-import ThemeToggle from "@/components/ThemeToggle";
+import { DM_Sans } from "next/font/google";
 import "./globals.css";
 
-const sourceSerif = Source_Serif_4({
-  variable: "--font-source-serif",
-  subsets: ["latin"],
-  display: "swap",
-  weight: ["400", "500", "600", "700"],
-});
-
 const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
   subsets: ["latin"],
-  display: "swap",
-  weight: ["400", "500", "600"],
+  variable: "--font-sans",
 });
 
 export const metadata: Metadata = {
-  title: "YouTube Knowledge Extractor",
-  description:
-    "Transform YouTube videos into detailed, structured summaries — learn faster, remember more.",
+  title: "Knowledge Base",
+  description: "Extract and organize knowledge from YouTube videos",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                try {
-                  var theme = localStorage.getItem('theme') || 'light';
-                  document.documentElement.setAttribute('data-theme', theme);
-                } catch(e) {}
+                var theme = localStorage.getItem('theme');
+                if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                  document.documentElement.classList.add('dark');
+                }
               })();
             `,
           }}
         />
       </head>
-      <body className={`${sourceSerif.variable} ${dmSans.variable}`}>
-        <header className="fixed top-0 right-0 z-50 p-4">
-          <ThemeToggle />
-        </header>
+      <body className={`${dmSans.variable} font-sans`}>
         {children}
       </body>
     </html>
