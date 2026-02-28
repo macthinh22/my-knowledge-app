@@ -52,7 +52,7 @@ export function VideoDetail({ video }: VideoDetailProps) {
                     </span>
                   </AccordionTrigger>
                   <AccordionContent>
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <div className="prose prose-base dark:prose-invert max-w-none">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {video[section.field] || ""}
                       </ReactMarkdown>

@@ -37,12 +37,12 @@ export default function VideoPage({
       <div className="min-h-screen bg-background p-6">
         <Skeleton className="h-6 w-32 mb-6" />
         <div className="flex flex-col lg:flex-row gap-6">
-          <div className="lg:w-3/5">
+          <div className="lg:w-2/5">
             <Skeleton className="aspect-video w-full rounded-lg" />
             <Skeleton className="mt-4 h-6 w-3/4" />
             <Skeleton className="mt-2 h-4 w-1/2" />
           </div>
-          <div className="lg:w-2/5 space-y-4">
+          <div className="lg:w-3/5 space-y-4">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-40 w-full" />
           </div>
@@ -76,7 +76,7 @@ export default function VideoPage({
 
       <div className="flex flex-col lg:flex-row gap-6 p-6">
         {/* Left panel - player + metadata */}
-        <div className="lg:w-3/5">
+        <div className="lg:w-2/5">
           <div className="lg:sticky lg:top-6">
             <YouTubeEmbed youtubeId={video.youtube_id} title={video.title ?? "Video"} />
 
@@ -114,7 +114,7 @@ export default function VideoPage({
         </div>
 
         {/* Right panel - analysis + notes */}
-        <div className="lg:w-2/5">
+        <div className="lg:w-3/5">
           <VideoDetail video={video} />
         </div>
       </div>
