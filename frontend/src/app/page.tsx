@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, VideoOff, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,26 +8,25 @@ import { Toolbar } from "@/components/Toolbar";
 import { VideoInput } from "@/components/VideoInput";
 import { VideoCard } from "@/components/VideoCard";
 import { VideoListItem } from "@/components/VideoListItem";
-import { LoadingState } from "@/components/LoadingState";
-import { listVideos, createVideo, type VideoListItem as VideoType } from "@/lib/api";
+import { ExtractionProgress } from "@/components/LoadingState";
+import { useExtraction } from "@/context/extraction";
 
 export default function HomePage() {
-  const [videos, setVideos] = useState<VideoType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [extracting, setExtracting] = useState(false);
-  const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
+  const {
+    extraction,
+    extract,
+    videos,
+    loadingVideos: loading,
+    extractError: error,
+    extractInfo: info,
+  } = useExtraction();
+
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [showInput, setShowInput] = useState(false);
 
-  useEffect(() => {
-    listVideos()
-      .then(setVideos)
-      .catch(() => setError("Failed to load videos"))
-      .finally(() => setLoading(false));
-  }, []);
+  const isExtracting = extraction !== null;
 
   const allKeywords = useMemo(() => {
     const counts = new Map<string, number>();
@@ -58,26 +57,10 @@ export default function HomePage() {
     return result;
   }, [videos, search, selectedKeywords]);
 
-  const handleExtract = useCallback(async (url: string) => {
-    setExtracting(true);
-    setError("");
-    setInfo("");
-    try {
-      const result = await createVideo(url);
-      const isDuplicate = videos.some((v) => v.id === result.id);
-      const updated = await listVideos();
-      setVideos(updated);
-      setShowInput(false);
-      if (isDuplicate) {
-        setInfo("This video is already in your library.");
-      }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to extract video";
-      setError(msg);
-    } finally {
-      setExtracting(false);
-    }
-  }, [videos]);
+  const handleExtract = async (url: string) => {
+    await extract(url);
+    setShowInput(false);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,8 +72,6 @@ export default function HomePage() {
         selectedKeywords={selectedKeywords}
         onKeywordsChange={setSelectedKeywords}
       />
-
-      {extracting && <LoadingState />}
 
       <main className="px-6 py-6">
         <div className="mb-6 flex items-center justify-between">
@@ -110,8 +91,14 @@ export default function HomePage() {
         </div>
 
         {showInput && (
+          <div className="mb-4 max-w-xl">
+            <VideoInput onSubmit={handleExtract} isLoading={isExtracting} />
+          </div>
+        )}
+
+        {isExtracting && (
           <div className="mb-8 max-w-xl">
-            <VideoInput onSubmit={handleExtract} isLoading={extracting} />
+            <ExtractionProgress />
           </div>
         )}
 
@@ -127,7 +114,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {!loading && videos.length === 0 && (
+        {!loading && videos.length === 0 && !isExtracting && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <VideoOff className="h-12 w-12 text-muted-foreground mb-4" />
             <h2 className="text-lg font-medium">No videos yet</h2>
@@ -154,7 +141,7 @@ export default function HomePage() {
         )}
 
         {!loading && filtered.length > 0 && view === "grid" && (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] items-stretch gap-4">
             {filtered.map((video) => (
               <VideoCard key={video.id} video={video} />
             ))}

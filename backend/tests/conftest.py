@@ -8,12 +8,13 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.database import get_db
-from app.models import Video
+from app.models import Video, VideoJob
 
 
 # ---------------------------------------------------------------------------
 # Fake video data
 # ---------------------------------------------------------------------------
+
 
 def make_video(**overrides) -> Video:
     """Create a Video ORM instance with sensible defaults."""
@@ -43,28 +44,68 @@ def make_video(**overrides) -> Video:
 # Mock DB session
 # ---------------------------------------------------------------------------
 
+
 class FakeDB:
     """Lightweight mock replacing AsyncSession for endpoint tests."""
 
     def __init__(self):
         self.store: dict[uuid.UUID, Video] = {}
+        self.job_store: dict[uuid.UUID, VideoJob] = {}
 
     async def get(self, model, pk):
+        if model is VideoJob:
+            return self.job_store.get(pk)
         return self.store.get(pk)
 
     async def execute(self, stmt):
-        """Supports basic select() queries by returning all or filtered."""
         result = MagicMock()
-        # For list queries, return all videos
+        sql = str(stmt)
+        params = stmt.compile().params
+
+        if "FROM video_jobs" in sql:
+            jobs = sorted(
+                self.job_store.values(),
+                key=lambda j: j.created_at,
+                reverse=True,
+            )
+
+            youtube_id = params.get("youtube_id_1")
+            if youtube_id is not None:
+                jobs = [j for j in jobs if j.youtube_id == youtube_id]
+
+            status_exact = params.get("status_1")
+            if isinstance(status_exact, str):
+                jobs = [j for j in jobs if j.status == status_exact]
+
+            status_values = params.get("status_1")
+            if isinstance(status_values, (list, tuple)):
+                jobs = [j for j in jobs if j.status in set(status_values)]
+
+            video_id = params.get("video_id_1")
+            if video_id is not None:
+                jobs = [j for j in jobs if j.video_id == video_id]
+
+            result.scalars.return_value.all.return_value = jobs
+            result.scalars.return_value.first.return_value = jobs[0] if jobs else None
+            result.scalar_one_or_none.return_value = jobs[0] if jobs else None
+            return result
+
         videos = sorted(self.store.values(), key=lambda v: v.created_at, reverse=True)
+        youtube_id = params.get("youtube_id_1")
+        if youtube_id is not None:
+            videos = [v for v in videos if v.youtube_id == youtube_id]
+
         result.scalars.return_value.all.return_value = videos
-        # For duplicate check (scalar_one_or_none)
-        result.scalar_one_or_none.return_value = None
+        result.scalars.return_value.first.return_value = videos[0] if videos else None
+        result.scalar_one_or_none.return_value = videos[0] if videos else None
         return result
 
     def add(self, obj):
         if not hasattr(obj, "id") or obj.id is None:
             obj.id = uuid.uuid4()
+        if isinstance(obj, VideoJob):
+            self.job_store[obj.id] = obj
+            return
         self.store[obj.id] = obj
 
     async def flush(self):
@@ -79,6 +120,9 @@ class FakeDB:
             object.__setattr__(obj, "updated_at", now)
 
     async def delete(self, obj):
+        if isinstance(obj, VideoJob):
+            self.job_store.pop(obj.id, None)
+            return
         self.store.pop(obj.id, None)
 
     async def commit(self):

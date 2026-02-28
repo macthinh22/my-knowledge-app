@@ -31,11 +31,15 @@ export function VideoInput({ onSubmit, isLoading }: VideoInputProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="relative flex gap-2">
+    <form noValidate onSubmit={handleSubmit} className="relative flex gap-2">
       <div className="relative flex-1">
         <Link2 className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          type="url"
+          type="text"
+          inputMode="url"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           placeholder="Paste a YouTube URL..."
           className="pl-9"
           value={url}

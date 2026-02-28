@@ -31,6 +31,22 @@ export interface Video extends VideoListItem {
     notes: string | null;
 }
 
+export type VideoJobStatus = "queued" | "processing" | "completed" | "failed";
+
+export interface VideoJob {
+    id: string;
+    youtube_url: string;
+    youtube_id: string;
+    status: VideoJobStatus;
+    current_step: number;
+    total_steps: number;
+    step_label: string;
+    error_message: string | null;
+    video_id: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
 export interface ApiError {
     detail: string;
 }
@@ -63,12 +79,22 @@ async function request<T>(
 /*  Public API                                                         */
 /* ------------------------------------------------------------------ */
 
-/** Submit a YouTube URL — triggers the full extraction pipeline. */
-export function createVideo(youtubeUrl: string) {
-    return request<Video>("/api/videos", {
+export function createVideoJob(youtubeUrl: string) {
+    return request<VideoJob>("/api/videos", {
         method: "POST",
         body: JSON.stringify({ youtube_url: youtubeUrl }),
     });
+}
+
+export function getVideoJob(jobId: string) {
+    return request<VideoJob>(`/api/videos/jobs/${jobId}`);
+}
+
+export function listVideoJobs(statuses?: VideoJobStatus[]) {
+    const query = statuses && statuses.length > 0
+        ? `?status=${encodeURIComponent(statuses.join(","))}`
+        : "";
+    return request<VideoJob[]>(`/api/videos/jobs${query}`);
 }
 
 /** List all videos, sorted newest first. */

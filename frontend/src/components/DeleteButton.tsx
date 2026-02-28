@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useExtraction } from "@/context/extraction";
 import { deleteVideo } from "@/lib/api";
 
 interface DeleteButtonProps {
@@ -22,6 +23,7 @@ interface DeleteButtonProps {
 
 export function DeleteButton({ videoId, videoTitle }: DeleteButtonProps) {
   const router = useRouter();
+  const { removeVideo } = useExtraction();
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -29,6 +31,7 @@ export function DeleteButton({ videoId, videoTitle }: DeleteButtonProps) {
     setDeleting(true);
     try {
       await deleteVideo(videoId);
+      removeVideo(videoId);
       router.push("/");
     } catch {
       setDeleting(false);

@@ -14,9 +14,9 @@ export function VideoCard({ video }: VideoCardProps) {
     ?? `https://i.ytimg.com/vi/${video.youtube_id}/hqdefault.jpg`;
 
   return (
-    <Link href={`/video/${video.id}`} className="group block">
-      <div className="overflow-hidden rounded-lg bg-card shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
-        <div className="relative aspect-video overflow-hidden">
+    <Link href={`/video/${video.id}`} className="group block h-full">
+      <div className="flex h-full flex-col overflow-hidden rounded-lg bg-card shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+        <div className="relative aspect-video flex-none overflow-hidden">
           <Image
             src={thumbnail}
             alt={video.title ?? "Video thumbnail"}
@@ -35,7 +35,7 @@ export function VideoCard({ video }: VideoCardProps) {
           </div>
         </div>
 
-        <div className="p-3">
+        <div className="flex flex-1 flex-col p-3">
           <h3 className="line-clamp-2 text-sm font-medium leading-snug">
             {video.title ?? "Untitled"}
           </h3>
@@ -46,7 +46,7 @@ export function VideoCard({ video }: VideoCardProps) {
             {new Date(video.created_at).toLocaleDateString()}
           </p>
           {video.keywords && video.keywords.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
+            <div className="mt-auto flex flex-wrap gap-1 pt-2">
               {video.keywords.slice(0, 3).map((kw) => (
                 <Badge key={kw} variant="secondary" className="text-[10px] px-1.5 py-0">
                   {kw}

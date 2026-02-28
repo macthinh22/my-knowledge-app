@@ -33,41 +33,56 @@ MOCK_ANALYSIS = KnowledgeResult(
 )
 
 
+def _close_coro(coro):
+    coro.close()
+
+
 # ---------------------------------------------------------------------------
 # POST /api/videos
 # ---------------------------------------------------------------------------
 
 
 class TestCreateVideo:
+    @pytest.mark.asyncio
+    @patch("app.routers.videos.asyncio.create_task")
+    @patch("app.routers.videos.youtube_service")
+    async def test_create_video_success(
+        self, mock_youtube, mock_create_task, client, fake_db
+    ):
+        mock_create_task.side_effect = _close_coro
+        mock_youtube.extract_youtube_id.return_value = MOCK_YOUTUBE_ID
+
+        res = await client.post("/api/videos", json={"youtube_url": MOCK_YOUTUBE_URL})
+
+        assert res.status_code == 202
+        data = res.json()
+        assert data["status"] == "queued"
+        assert data["youtube_id"] == MOCK_YOUTUBE_ID
+        assert data["video_id"] is None
+        mock_create_task.assert_called_once()
 
     @pytest.mark.asyncio
+    @patch("app.routers.videos.asyncio.create_task")
     @patch("app.routers.videos.youtube_service")
-    @patch("app.routers.videos.summarizer_service")
-    async def test_create_video_success(
-        self, mock_summarizer, mock_youtube, client, fake_db
+    async def test_create_video_duplicate_returns_completed_job(
+        self, mock_youtube, mock_create_task, client, fake_db
     ):
-        mock_youtube.extract_youtube_id.return_value = MOCK_YOUTUBE_ID
-        mock_youtube.fetch_metadata = AsyncMock(return_value=MOCK_METADATA)
-        mock_youtube.fetch_transcript = AsyncMock(
-            return_value=("transcript text", "captions")
-        )
-        mock_summarizer.analyze = AsyncMock(return_value=MOCK_ANALYSIS)
+        mock_create_task.side_effect = _close_coro
+        vid = make_video()
+        fake_db.store[vid.id] = vid
+        mock_youtube.extract_youtube_id.return_value = vid.youtube_id
 
-        res = await client.post(
-            "/api/videos", json={"youtube_url": MOCK_YOUTUBE_URL}
-        )
+        res = await client.post("/api/videos", json={"youtube_url": MOCK_YOUTUBE_URL})
 
-        assert res.status_code == 201
+        assert res.status_code == 202
         data = res.json()
-        assert data["title"] == "Test Video"
-        assert data["youtube_id"] == MOCK_YOUTUBE_ID
-        assert data["keywords"] == ["test", "python"]
+        assert data["status"] == "completed"
+        assert data["video_id"] == str(vid.id)
+        mock_create_task.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_create_video_invalid_url(self, client):
-        res = await client.post(
-            "/api/videos", json={"youtube_url": "not-a-url"}
-        )
+        res = await client.post("/api/videos", json={"youtube_url": "not-a-url"})
         assert res.status_code == 422  # Pydantic validation (HttpUrl)
 
 
@@ -77,7 +92,6 @@ class TestCreateVideo:
 
 
 class TestListVideos:
-
     @pytest.mark.asyncio
     async def test_list_empty(self, client, fake_db):
         res = await client.get("/api/videos")
@@ -96,13 +110,45 @@ class TestListVideos:
         assert data[0]["title"] == "Test Video"
 
 
+class TestVideoJobs:
+    @pytest.mark.asyncio
+    @patch("app.routers.videos.asyncio.create_task")
+    @patch("app.routers.videos.youtube_service")
+    async def test_list_jobs(self, mock_youtube, mock_create_task, client, fake_db):
+        mock_create_task.side_effect = _close_coro
+        mock_youtube.extract_youtube_id.return_value = MOCK_YOUTUBE_ID
+        await client.post("/api/videos", json={"youtube_url": MOCK_YOUTUBE_URL})
+
+        res = await client.get("/api/videos/jobs")
+        assert res.status_code == 200
+        data = res.json()
+        assert len(data) == 1
+        assert data[0]["status"] == "queued"
+        mock_create_task.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("app.routers.videos.asyncio.create_task")
+    @patch("app.routers.videos.youtube_service")
+    async def test_get_job(self, mock_youtube, mock_create_task, client, fake_db):
+        mock_create_task.side_effect = _close_coro
+        mock_youtube.extract_youtube_id.return_value = MOCK_YOUTUBE_ID
+        created = await client.post(
+            "/api/videos", json={"youtube_url": MOCK_YOUTUBE_URL}
+        )
+
+        job_id = created.json()["id"]
+        res = await client.get(f"/api/videos/jobs/{job_id}")
+        assert res.status_code == 200
+        assert res.json()["id"] == job_id
+        mock_create_task.assert_called_once()
+
+
 # ---------------------------------------------------------------------------
 # GET /api/videos/{id}
 # ---------------------------------------------------------------------------
 
 
 class TestGetVideo:
-
     @pytest.mark.asyncio
     async def test_get_existing_video(self, client, fake_db):
         vid = make_video()
@@ -129,7 +175,6 @@ class TestGetVideo:
 
 
 class TestUpdateVideo:
-
     @pytest.mark.asyncio
     async def test_update_notes(self, client, fake_db):
         vid = make_video()
@@ -145,9 +190,7 @@ class TestUpdateVideo:
     @pytest.mark.asyncio
     async def test_update_nonexistent(self, client, fake_db):
         fake_id = uuid.uuid4()
-        res = await client.patch(
-            f"/api/videos/{fake_id}", json={"notes": "nope"}
-        )
+        res = await client.patch(f"/api/videos/{fake_id}", json={"notes": "nope"})
         assert res.status_code == 404
 
 
@@ -157,7 +200,6 @@ class TestUpdateVideo:
 
 
 class TestDeleteVideo:
-
     @pytest.mark.asyncio
     async def test_delete_existing(self, client, fake_db):
         vid = make_video()
@@ -180,7 +222,6 @@ class TestDeleteVideo:
 
 
 class TestHealth:
-
     @pytest.mark.asyncio
     async def test_health(self, client):
         res = await client.get("/api/health")

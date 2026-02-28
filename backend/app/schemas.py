@@ -57,3 +57,19 @@ class VideoListResponse(BaseModel):
     transcript_source: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class VideoJobResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    youtube_url: str
+    youtube_id: str
+    status: str
+    current_step: int
+    total_steps: int
+    step_label: str
+    error_message: str | None = None
+    video_id: uuid.UUID | None = None
+    created_at: datetime
+    updated_at: datetime

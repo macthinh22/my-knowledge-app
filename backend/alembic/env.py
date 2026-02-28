@@ -8,7 +8,7 @@ from alembic import context
 
 from app.config import settings
 from app.database import Base
-from app.models import Video  # noqa: F401 — ensure model is registered
+from app.models import Video, VideoJob  # noqa: F401
 
 # Alembic Config object
 config = context.config
