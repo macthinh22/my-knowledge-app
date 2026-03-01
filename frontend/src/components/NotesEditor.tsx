@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Save, Loader2, Check, AlertCircle } from "lucide-react";
 import { updateVideoNotes } from "@/lib/api";
 
@@ -13,11 +13,6 @@ export function NotesEditor({ videoId, initialNotes }: NotesEditorProps) {
   const [notes, setNotes] = useState(initialNotes);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
-
-  useEffect(() => {
-    setNotes(initialNotes);
-    setStatus("idle");
-  }, [videoId, initialNotes]);
 
   const save = useCallback(async () => {
     if (notes === initialNotes) return;

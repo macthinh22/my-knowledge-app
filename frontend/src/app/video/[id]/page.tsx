@@ -3,16 +3,27 @@
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Clock, Calendar } from "lucide-react";
+import { ArrowLeft, Clock, Calendar, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { YouTubeEmbed } from "@/components/YouTubeEmbed";
 import { VideoDetail } from "@/components/VideoDetail";
 import { DeleteButton } from "@/components/DeleteButton";
-import { getVideo, type Video } from "@/lib/api";
+import { getVideo, getVideoJob, type Video, type VideoJob } from "@/lib/api";
 import { formatDuration } from "@/lib/format";
+
+const ACTIVE_JOB_STATUSES = new Set(["queued", "processing"]);
+
+function isNotFoundError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return message.includes("not found") || message.includes("(404)");
+}
 
 export default function VideoPage({
   params,
@@ -22,15 +33,123 @@ export default function VideoPage({
   const { id } = use(params);
   const router = useRouter();
   const [video, setVideo] = useState<Video | null>(null);
+  const [job, setJob] = useState<VideoJob | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getVideo(id)
-      .then(setVideo)
-      .catch(() => setError("Failed to load video"))
-      .finally(() => setLoading(false));
-  }, [id]);
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setError("");
+      setVideo(null);
+      setJob(null);
+
+      try {
+        const loadedVideo = await getVideo(id);
+        if (!cancelled) {
+          setVideo(loadedVideo);
+        }
+        return;
+      } catch (videoError) {
+        if (!isNotFoundError(videoError)) {
+          if (!cancelled) {
+            setError("Failed to load video");
+          }
+          return;
+        }
+      }
+
+      try {
+        const loadedJob = await getVideoJob(id);
+        if (cancelled) {
+          return;
+        }
+
+        if (loadedJob.status === "completed" && loadedJob.video_id) {
+          const loadedVideo = await getVideo(loadedJob.video_id);
+          if (cancelled) {
+            return;
+          }
+          setVideo(loadedVideo);
+          router.replace(`/video/${loadedJob.video_id}`);
+          return;
+        }
+
+        if (ACTIVE_JOB_STATUSES.has(loadedJob.status)) {
+          setJob(loadedJob);
+          return;
+        }
+
+        setError(loadedJob.error_message || "Extraction failed");
+      } catch {
+        if (!cancelled) {
+          setError("Video not found");
+        }
+      }
+    };
+
+    void load().finally(() => {
+      if (!cancelled) {
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, router]);
+
+  useEffect(() => {
+    if (!job || !ACTIVE_JOB_STATUSES.has(job.status)) {
+      return;
+    }
+
+    let cancelled = false;
+    const interval = setInterval(() => {
+      void (async () => {
+        try {
+          const latest = await getVideoJob(job.id);
+          if (cancelled) {
+            return;
+          }
+
+          if (latest.status === "completed" && latest.video_id) {
+            const loadedVideo = await getVideo(latest.video_id);
+            if (cancelled) {
+              return;
+            }
+            setVideo(loadedVideo);
+            setJob(null);
+            setError("");
+            router.replace(`/video/${latest.video_id}`);
+            return;
+          }
+
+          if (latest.status === "failed") {
+            setJob(null);
+            setError(latest.error_message || "Extraction failed");
+            return;
+          }
+
+          if (ACTIVE_JOB_STATUSES.has(latest.status)) {
+            setJob(latest);
+          }
+        } catch {
+          if (!cancelled) {
+            setJob(null);
+            setError("Failed to refresh extraction status");
+          }
+        }
+      })();
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [job, router]);
 
   if (loading) {
     return (
@@ -45,6 +164,52 @@ export default function VideoPage({
           <div className="lg:w-3/5 space-y-4">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-40 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (job && !video) {
+    const totalSteps = Math.max(job.total_steps, 1);
+    const stepNumber = Math.min(job.current_step + 1, totalSteps);
+    const progress = (stepNumber / totalSteps) * 100;
+
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b px-6 py-4">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to library
+          </Link>
+        </header>
+
+        <div className="flex flex-col gap-6 p-6 lg:flex-row">
+          <div className="space-y-4 lg:w-2/5 lg:sticky lg:top-6 lg:self-start">
+            <YouTubeEmbed youtubeId={job.youtube_id} title="Processing video" />
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+            <div className="space-y-2 pt-4">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">
+                  Step {stepNumber} of {totalSteps} - {job.step_label}...
+                </span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+          </div>
+
+          <div className="space-y-6 lg:w-3/5">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="space-y-3">
+                <Skeleton className="h-5 w-1/3" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+            ))}
           </div>
         </div>
       </div>

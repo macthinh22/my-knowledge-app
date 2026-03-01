@@ -32,7 +32,8 @@ export interface Extraction {
 
 interface ExtractionContextValue {
   extraction: Extraction | null;
-  extract: (url: string) => Promise<void>;
+  activeJob: VideoJob | null;
+  extract: (url: string) => Promise<VideoJob | null>;
   videos: VideoListItem[];
   setVideos: React.Dispatch<React.SetStateAction<VideoListItem[]>>;
   removeVideo: (videoId: string) => void;
@@ -133,7 +134,7 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
           setActiveJob(job);
           persistActiveJobId(job.id);
           startPolling(job.id);
-          return;
+          return job;
         }
 
         if (job.status === "completed") {
@@ -141,13 +142,15 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
           setActiveJob(null);
           await refreshVideos();
           setExtractInfo("This video is already in your library.");
-          return;
+          return job;
         }
 
         setExtractError(job.error_message || "Failed to extract video");
+        return job;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Failed to extract video";
         setExtractError(msg);
+        return null;
       }
     },
     [clearMessages, persistActiveJobId, refreshVideos, startPolling],
@@ -221,6 +224,7 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
     <ExtractionContext.Provider
       value={{
         extraction,
+        activeJob,
         extract,
         videos,
         setVideos,

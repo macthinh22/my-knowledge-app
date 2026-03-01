@@ -66,7 +66,7 @@ export function VideoDetail({ video }: VideoDetailProps) {
       </TabsContent>
 
       <TabsContent value="notes" className="mt-4">
-        <NotesEditor videoId={video.id} initialNotes={video.notes || ""} />
+        <NotesEditor key={video.id} videoId={video.id} initialNotes={video.notes || ""} />
       </TabsContent>
     </Tabs>
   );
