@@ -6,6 +6,7 @@ from app.database import async_session
 from app.logging_config import get_logger
 from app.models import Video, VideoJob
 from app.services.summarizer import SummarizerService
+from app.services.tags import canonicalize_keywords
 from app.services.transcription import TranscriptionService
 from app.services.youtube import TranscriptNotAvailableError, YouTubeService
 
@@ -72,6 +73,7 @@ async def run_video_job(job_id: uuid.UUID) -> None:
             )
 
             analysis = await summarizer_service.analyze(transcript, metadata.title)
+            canonical_keywords = await canonicalize_keywords(db, analysis.keywords)
 
             await _set_job_state(
                 db,
@@ -98,12 +100,14 @@ async def run_video_job(job_id: uuid.UUID) -> None:
                     key_knowledge=analysis.key_knowledge,
                     critical_analysis=analysis.critical_analysis,
                     real_world_applications=analysis.real_world_applications,
-                    keywords=analysis.keywords,
+                    keywords=canonical_keywords,
                     transcript_source=transcript_source,
                 )
                 db.add(video)
                 await db.flush()
                 await db.refresh(video)
+            else:
+                video.keywords = canonical_keywords
 
             await _set_job_state(
                 db,

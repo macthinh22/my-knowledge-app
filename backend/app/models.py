@@ -67,3 +67,22 @@ class VideoJob(Base):
 
     def __repr__(self) -> str:
         return f"<VideoJob {self.id} {self.status} {self.youtube_id}>"
+
+
+class TagAlias(Base):
+    __tablename__ = "tag_aliases"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    alias: Mapped[str] = mapped_column(
+        String(100), unique=True, nullable=False, index=True
+    )
+    canonical: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+
+    def __repr__(self) -> str:
+        return f"<TagAlias {self.alias} -> {self.canonical}>"

@@ -1,6 +1,7 @@
 """Tests for video CRUD endpoints with mocked services."""
 
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -227,3 +228,52 @@ class TestHealth:
         res = await client.get("/api/health")
         assert res.status_code == 200
         assert res.json() == {"status": "ok"}
+
+
+class TestTags:
+    @pytest.mark.asyncio
+    async def test_list_tags_with_metadata(self, client, fake_db):
+        fake_db.store[uuid.uuid4()] = make_video(
+            keywords=["python", "ai", "AI"],
+            updated_at=datetime(2026, 1, 16, tzinfo=timezone.utc),
+        )
+        fake_db.store[uuid.uuid4()] = make_video(
+            keywords=["python", "backend"],
+            updated_at=datetime(2026, 1, 20, tzinfo=timezone.utc),
+        )
+
+        res = await client.get("/api/tags")
+        assert res.status_code == 200
+        tags = res.json()
+        assert tags[0]["tag"] == "python"
+        assert tags[0]["usage_count"] == 2
+        assert tags[0]["last_used_at"] is not None
+
+    @pytest.mark.asyncio
+    async def test_rename_tag(self, client, fake_db):
+        vid = make_video(keywords=["ai", "python"])
+        fake_db.store[vid.id] = vid
+
+        res = await client.post(
+            "/api/tags/rename",
+            json={"from_tag": "ai", "to_tag": "machine learning"},
+        )
+        assert res.status_code == 200
+        assert "machine learning" in fake_db.store[vid.id].keywords
+        assert "ai" not in fake_db.store[vid.id].keywords
+
+    @pytest.mark.asyncio
+    async def test_merge_and_delete_tags(self, client, fake_db):
+        vid = make_video(keywords=["ai", "ml", "python"])
+        fake_db.store[vid.id] = vid
+
+        merge_res = await client.post(
+            "/api/tags/merge",
+            json={"source_tags": ["ai", "ml"], "target_tag": "machine learning"},
+        )
+        assert merge_res.status_code == 200
+        assert fake_db.store[vid.id].keywords.count("machine learning") == 1
+
+        delete_res = await client.delete("/api/tags/machine learning")
+        assert delete_res.status_code == 200
+        assert "machine learning" not in fake_db.store[vid.id].keywords

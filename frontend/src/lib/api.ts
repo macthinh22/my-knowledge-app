@@ -47,6 +47,21 @@ export interface VideoJob {
     updated_at: string;
 }
 
+export interface TagSummary {
+    tag: string;
+    usage_count: number;
+    last_used_at: string | null;
+    aliases: string[];
+}
+
+export interface TagAlias {
+    id: string;
+    alias: string;
+    canonical: string;
+    created_at: string;
+    updated_at: string;
+}
+
 export interface ApiError {
     detail: string;
 }
@@ -118,6 +133,47 @@ export function updateVideoNotes(id: string, notes: string) {
 /** Delete a video entry. */
 export function deleteVideo(id: string) {
     return request<void>(`/api/videos/${id}`, {
+        method: "DELETE",
+    });
+}
+
+export function listTags() {
+    return request<TagSummary[]>("/api/tags");
+}
+
+export function listTagAliases() {
+    return request<TagAlias[]>("/api/tags/aliases");
+}
+
+export function createTagAlias(alias: string, canonical: string) {
+    return request<TagAlias>("/api/tags/aliases", {
+        method: "POST",
+        body: JSON.stringify({ alias, canonical }),
+    });
+}
+
+export function deleteTagAlias(alias: string) {
+    return request<void>(`/api/tags/aliases/${encodeURIComponent(alias)}`, {
+        method: "DELETE",
+    });
+}
+
+export function renameTag(fromTag: string, toTag: string) {
+    return request<TagSummary[]>("/api/tags/rename", {
+        method: "POST",
+        body: JSON.stringify({ from_tag: fromTag, to_tag: toTag }),
+    });
+}
+
+export function mergeTags(sourceTags: string[], targetTag: string) {
+    return request<TagSummary[]>("/api/tags/merge", {
+        method: "POST",
+        body: JSON.stringify({ source_tags: sourceTags, target_tag: targetTag }),
+    });
+}
+
+export function deleteTag(tag: string) {
+    return request<TagSummary[]>(`/api/tags/${encodeURIComponent(tag)}`, {
         method: "DELETE",
     });
 }

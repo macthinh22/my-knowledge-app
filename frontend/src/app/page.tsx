@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Plus, VideoOff, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,12 +10,18 @@ import { VideoCard } from "@/components/VideoCard";
 import { VideoListItem } from "@/components/VideoListItem";
 import { ExtractionProgress } from "@/components/LoadingState";
 import { useExtraction } from "@/context/extraction";
+import { listVideos, type TagSummary } from "@/lib/api";
+
+function normalizeTag(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
 
 export default function HomePage() {
   const {
     extraction,
     extract,
     videos,
+    setVideos,
     loadingVideos: loading,
     extractError: error,
     extractInfo: info,
@@ -24,18 +30,41 @@ export default function HomePage() {
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  const [keywordFilterMode, setKeywordFilterMode] = useState<"all" | "any">("all");
   const [showInput, setShowInput] = useState(false);
 
   const isExtracting = extraction !== null;
 
-  const allKeywords = useMemo(() => {
-    const counts = new Map<string, number>();
-    videos.forEach((v) =>
-      v.keywords?.forEach((kw) => counts.set(kw, (counts.get(kw) || 0) + 1)),
-    );
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([kw]) => kw);
+  const allKeywords = useMemo<TagSummary[]>(() => {
+    const map = new Map<string, { usage: number; lastUsed: string }>();
+    videos.forEach((video) => {
+      const lastUsed = video.updated_at || video.created_at;
+      (video.keywords ?? []).forEach((keyword) => {
+        const normalized = normalizeTag(keyword);
+        if (!normalized) {
+          return;
+        }
+
+        const current = map.get(normalized);
+        if (!current) {
+          map.set(normalized, { usage: 1, lastUsed });
+          return;
+        }
+        map.set(normalized, {
+          usage: current.usage + 1,
+          lastUsed: lastUsed > current.lastUsed ? lastUsed : current.lastUsed,
+        });
+      });
+    });
+
+    return Array.from(map.entries())
+      .sort((a, b) => b[1].usage - a[1].usage || a[0].localeCompare(b[0]))
+      .map(([tag, meta]) => ({
+        tag,
+        usage_count: meta.usage,
+        last_used_at: meta.lastUsed,
+        aliases: [],
+      }));
   }, [videos]);
 
   const filtered = useMemo(() => {
@@ -50,12 +79,25 @@ export default function HomePage() {
       );
     }
     if (selectedKeywords.length > 0) {
-      result = result.filter((v) =>
-        selectedKeywords.every((kw) => v.keywords?.includes(kw)),
-      );
+      result = result.filter((v) => {
+        const tags = new Set((v.keywords ?? []).map(normalizeTag));
+        if (keywordFilterMode === "any") {
+          return selectedKeywords.some((kw) => tags.has(kw));
+        }
+        return selectedKeywords.every((kw) => tags.has(kw));
+      });
     }
     return result;
-  }, [videos, search, selectedKeywords]);
+  }, [videos, search, selectedKeywords, keywordFilterMode]);
+
+  const refreshAfterTagMutation = useCallback(async () => {
+    const videosList = await listVideos();
+    setVideos(videosList);
+    const validTags = new Set(
+      videosList.flatMap((video) => (video.keywords ?? []).map(normalizeTag)),
+    );
+    setSelectedKeywords((prev) => prev.filter((kw) => validTags.has(kw)));
+  }, [setVideos]);
 
   const handleExtract = async (url: string) => {
     await extract(url);
@@ -68,9 +110,12 @@ export default function HomePage() {
         onSearchChange={setSearch}
         view={view}
         onViewChange={setView}
-        availableKeywords={allKeywords}
+        availableTags={allKeywords}
         selectedKeywords={selectedKeywords}
         onKeywordsChange={setSelectedKeywords}
+        keywordFilterMode={keywordFilterMode}
+        onKeywordFilterModeChange={setKeywordFilterMode}
+        onTagDataChanged={refreshAfterTagMutation}
       />
 
       <main className="px-6 py-6">

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 class VideoCreate(BaseModel):
@@ -73,3 +73,35 @@ class VideoJobResponse(BaseModel):
     video_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class TagSummaryResponse(BaseModel):
+    tag: str
+    usage_count: int
+    last_used_at: datetime | None = None
+    aliases: list[str] = Field(default_factory=list)
+
+
+class TagAliasResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    alias: str
+    canonical: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class TagAliasCreate(BaseModel):
+    alias: str
+    canonical: str
+
+
+class TagRenameRequest(BaseModel):
+    from_tag: str
+    to_tag: str
+
+
+class TagMergeRequest(BaseModel):
+    source_tags: list[str]
+    target_tag: str

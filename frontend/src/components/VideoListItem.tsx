@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Clock } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { KeywordChips } from "@/components/KeywordChips";
 import type { VideoListItem as VideoType } from "@/lib/api";
 import { formatDuration } from "@/lib/format";
 
@@ -39,15 +39,7 @@ export function VideoListItem({ video }: VideoListItemProps) {
         <p className="text-xs text-muted-foreground">
           {video.channel_name} &middot; {new Date(video.created_at).toLocaleDateString()}
         </p>
-        {video.keywords && video.keywords.length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-1">
-            {video.keywords.slice(0, 4).map((kw) => (
-              <Badge key={kw} variant="secondary" className="text-[10px] px-1.5 py-0">
-                {kw}
-              </Badge>
-            ))}
-          </div>
-        )}
+        <KeywordChips keywords={video.keywords} maxVisible={4} className="mt-1" />
       </div>
     </Link>
   );

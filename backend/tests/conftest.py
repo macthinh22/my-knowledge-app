@@ -8,7 +8,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.database import get_db
-from app.models import Video, VideoJob
+from app.models import TagAlias, Video, VideoJob
 
 
 # ---------------------------------------------------------------------------
@@ -51,10 +51,13 @@ class FakeDB:
     def __init__(self):
         self.store: dict[uuid.UUID, Video] = {}
         self.job_store: dict[uuid.UUID, VideoJob] = {}
+        self.alias_store: dict[uuid.UUID, TagAlias] = {}
 
     async def get(self, model, pk):
         if model is VideoJob:
             return self.job_store.get(pk)
+        if model is TagAlias:
+            return self.alias_store.get(pk)
         return self.store.get(pk)
 
     async def execute(self, stmt):
@@ -90,6 +93,28 @@ class FakeDB:
             result.scalar_one_or_none.return_value = jobs[0] if jobs else None
             return result
 
+        if "FROM tag_aliases" in sql:
+            aliases = sorted(self.alias_store.values(), key=lambda a: a.alias)
+
+            alias = params.get("alias_1")
+            if isinstance(alias, str):
+                aliases = [row for row in aliases if row.alias == alias]
+
+            canonical = params.get("canonical_1")
+            if isinstance(canonical, str):
+                aliases = [row for row in aliases if row.canonical == canonical]
+
+            alias_values = params.get("alias_1")
+            if isinstance(alias_values, (list, tuple)):
+                aliases = [row for row in aliases if row.alias in set(alias_values)]
+
+            result.scalars.return_value.all.return_value = aliases
+            result.scalars.return_value.first.return_value = (
+                aliases[0] if aliases else None
+            )
+            result.scalar_one_or_none.return_value = aliases[0] if aliases else None
+            return result
+
         videos = sorted(self.store.values(), key=lambda v: v.created_at, reverse=True)
         youtube_id = params.get("youtube_id_1")
         if youtube_id is not None:
@@ -105,6 +130,9 @@ class FakeDB:
             obj.id = uuid.uuid4()
         if isinstance(obj, VideoJob):
             self.job_store[obj.id] = obj
+            return
+        if isinstance(obj, TagAlias):
+            self.alias_store[obj.id] = obj
             return
         self.store[obj.id] = obj
 
@@ -122,6 +150,9 @@ class FakeDB:
     async def delete(self, obj):
         if isinstance(obj, VideoJob):
             self.job_store.pop(obj.id, None)
+            return
+        if isinstance(obj, TagAlias):
+            self.alias_store.pop(obj.id, None)
             return
         self.store.pop(obj.id, None)
 
