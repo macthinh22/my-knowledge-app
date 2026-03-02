@@ -12,18 +12,22 @@ import { Separator } from "@/components/ui/separator";
 import { YouTubeEmbed } from "@/components/YouTubeEmbed";
 import { VideoDetail } from "@/components/VideoDetail";
 import { DeleteButton } from "@/components/DeleteButton";
-import { getVideo, getVideoJob, type Video, type VideoJob } from "@/lib/api";
+import {
+  getVideo,
+  getVideoJob,
+  isApiRequestError,
+  type Video,
+  type VideoJob,
+} from "@/lib/api";
 import { formatDuration } from "@/lib/format";
+import {
+  POLLING_BASE_INTERVAL_MS,
+  POLLING_MAX_FAILURES,
+  POLLING_MAX_INTERVAL_MS,
+  getPollingBackoffDelayMs,
+} from "@/lib/polling";
 
 const ACTIVE_JOB_STATUSES = new Set(["queued", "processing"]);
-
-function isNotFoundError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-  const message = error.message.toLowerCase();
-  return message.includes("not found") || message.includes("(404)");
-}
 
 export default function VideoPage({
   params,
@@ -53,7 +57,7 @@ export default function VideoPage({
         }
         return;
       } catch (videoError) {
-        if (!isNotFoundError(videoError)) {
+        if (!isApiRequestError(videoError) || videoError.status !== 404) {
           if (!cancelled) {
             setError("Failed to load video");
           }
@@ -83,9 +87,13 @@ export default function VideoPage({
         }
 
         setError(loadedJob.error_message || "Extraction failed");
-      } catch {
+      } catch (jobError) {
         if (!cancelled) {
-          setError("Video not found");
+          if (isApiRequestError(jobError) && jobError.status === 404) {
+            setError("Video not found");
+          } else {
+            setError("Failed to load video");
+          }
         }
       }
     };
@@ -107,47 +115,78 @@ export default function VideoPage({
     }
 
     let cancelled = false;
-    const interval = setInterval(() => {
-      void (async () => {
-        try {
-          const latest = await getVideoJob(job.id);
+    let timeoutRef: ReturnType<typeof setTimeout> | null = null;
+    let currentDelay = POLLING_BASE_INTERVAL_MS;
+    let failureCount = 0;
+
+    const scheduleNext = () => {
+      if (cancelled) {
+        return;
+      }
+      timeoutRef = setTimeout(() => {
+        void poll();
+      }, currentDelay);
+    };
+
+    const poll = async () => {
+      try {
+        const latest = await getVideoJob(job.id);
+        if (cancelled) {
+          return;
+        }
+
+        failureCount = 0;
+        currentDelay = POLLING_BASE_INTERVAL_MS;
+        setError("");
+
+        if (latest.status === "completed" && latest.video_id) {
+          const loadedVideo = await getVideo(latest.video_id);
           if (cancelled) {
             return;
           }
-
-          if (latest.status === "completed" && latest.video_id) {
-            const loadedVideo = await getVideo(latest.video_id);
-            if (cancelled) {
-              return;
-            }
-            setVideo(loadedVideo);
-            setJob(null);
-            setError("");
-            router.replace(`/video/${latest.video_id}`);
-            return;
-          }
-
-          if (latest.status === "failed") {
-            setJob(null);
-            setError(latest.error_message || "Extraction failed");
-            return;
-          }
-
-          if (ACTIVE_JOB_STATUSES.has(latest.status)) {
-            setJob(latest);
-          }
-        } catch {
-          if (!cancelled) {
-            setJob(null);
-            setError("Failed to refresh extraction status");
-          }
+          setVideo(loadedVideo);
+          setJob(null);
+          setError("");
+          router.replace(`/video/${latest.video_id}`);
+          return;
         }
-      })();
-    }, 2000);
+
+        if (latest.status === "failed") {
+          setJob(null);
+          setError(latest.error_message || "Extraction failed");
+          return;
+        }
+
+        if (ACTIVE_JOB_STATUSES.has(latest.status)) {
+          setJob(latest);
+          scheduleNext();
+        }
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        failureCount += 1;
+
+        if (failureCount >= POLLING_MAX_FAILURES) {
+          setError("Failed to refresh extraction status");
+          currentDelay = POLLING_MAX_INTERVAL_MS;
+          scheduleNext();
+          return;
+        }
+
+        currentDelay = getPollingBackoffDelayMs(failureCount);
+        scheduleNext();
+      }
+    };
+
+    void poll();
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      if (timeoutRef) {
+        clearTimeout(timeoutRef);
+      }
     };
   }, [job, router]);
 

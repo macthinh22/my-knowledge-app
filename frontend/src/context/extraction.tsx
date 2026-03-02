@@ -17,10 +17,14 @@ import {
   type VideoJob,
   type VideoListItem,
 } from "@/lib/api";
+import {
+  POLLING_BASE_INTERVAL_MS,
+  POLLING_MAX_FAILURES,
+  getPollingBackoffDelayMs,
+} from "@/lib/polling";
 
 const ACTIVE_JOB_STORAGE_KEY = "active-extraction-job-id";
 const ACTIVE_STATUSES = new Set(["queued", "processing"]);
-const POLL_INTERVAL = 2000;
 
 export interface Extraction {
   jobId: string;
@@ -52,6 +56,8 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
   const [extractError, setExtractError] = useState("");
   const [extractInfo, setExtractInfo] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollFailureCountRef = useRef(0);
+  const pollBackoffUntilRef = useRef(0);
 
   const clearMessages = useCallback(() => {
     setExtractError("");
@@ -72,6 +78,8 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
+    pollFailureCountRef.current = 0;
+    pollBackoffUntilRef.current = 0;
   }, []);
 
   const persistActiveJobId = useCallback((jobId: string | null) => {
@@ -84,8 +92,15 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
 
   const pollJob = useCallback(
     async (jobId: string) => {
+      if (Date.now() < pollBackoffUntilRef.current) {
+        return;
+      }
+
       try {
         const latest = await getVideoJob(jobId);
+        pollFailureCountRef.current = 0;
+        pollBackoffUntilRef.current = 0;
+        setExtractError("");
 
         if (ACTIVE_STATUSES.has(latest.status)) {
           setActiveJob(latest);
@@ -103,10 +118,13 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
 
         setExtractError(latest.error_message || "Failed to extract video");
       } catch {
-        stopPolling();
-        persistActiveJobId(null);
-        setActiveJob(null);
-        setExtractError("Failed to refresh extraction status");
+        pollFailureCountRef.current += 1;
+        const backoffDelay = getPollingBackoffDelayMs(pollFailureCountRef.current);
+        pollBackoffUntilRef.current = Date.now() + backoffDelay;
+
+        if (pollFailureCountRef.current >= POLLING_MAX_FAILURES) {
+          setExtractError("Connection issue while syncing extraction status. Retrying...");
+        }
       }
     },
     [persistActiveJobId, refreshVideos, stopPolling],
@@ -117,7 +135,7 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
       stopPolling();
       pollRef.current = setInterval(() => {
         void pollJob(jobId);
-      }, POLL_INTERVAL);
+      }, POLLING_BASE_INTERVAL_MS);
       void pollJob(jobId);
     },
     [pollJob, stopPolling],

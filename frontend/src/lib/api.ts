@@ -66,6 +66,22 @@ export interface ApiError {
     detail: string;
 }
 
+export class ApiRequestError extends Error {
+    status: number;
+    detail: string | null;
+
+    constructor(status: number, detail?: string | null) {
+        super(detail ?? `Request failed (${status})`);
+        this.name = "ApiRequestError";
+        this.status = status;
+        this.detail = detail ?? null;
+    }
+}
+
+export function isApiRequestError(error: unknown): error is ApiRequestError {
+    return error instanceof ApiRequestError;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -81,7 +97,7 @@ async function request<T>(
 
     if (!res.ok) {
         const body = (await res.json().catch(() => null)) as ApiError | null;
-        throw new Error(body?.detail ?? `Request failed (${res.status})`);
+        throw new ApiRequestError(res.status, body?.detail ?? null);
     }
 
     // 204 No Content (e.g. DELETE)
