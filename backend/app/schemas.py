@@ -14,6 +14,7 @@ class VideoUpdate(BaseModel):
     """Request body for PATCH /api/videos/{id}."""
 
     notes: str | None = None
+    category: str | None = None
 
 
 class VideoResponse(BaseModel):
@@ -33,6 +34,7 @@ class VideoResponse(BaseModel):
     critical_analysis: str | None = None
     real_world_applications: str | None = None
     keywords: list[str] | None = None
+    category: str | None = None
     notes: str | None = None
     transcript_source: str | None = None
     created_at: datetime
@@ -54,6 +56,7 @@ class VideoListResponse(BaseModel):
     explanation: str | None = None
     key_knowledge: str | None = None
     keywords: list[str] | None = None
+    category: str | None = None
     transcript_source: str | None = None
     created_at: datetime
     updated_at: datetime
@@ -95,6 +98,20 @@ class TagAliasResponse(BaseModel):
 class TagAliasCreate(BaseModel):
     alias: str
     canonical: str
+
+
+class CategoryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    slug: str
+    name: str
+    created_at: datetime
+
+
+class CategoryCreate(BaseModel):
+    slug: str
+    name: str
 
 
 class TagRenameRequest(BaseModel):

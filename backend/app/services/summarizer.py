@@ -45,6 +45,12 @@ class _KnowledgeSchema(BaseModel):
     keywords: list[str] = Field(
         description="5-10 lowercase descriptive tags for search and categorization."
     )
+    category: str = Field(
+        description=(
+            "The slug of the category that best fits this video. "
+            "Must be one of the provided category slugs."
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -56,6 +62,7 @@ class KnowledgeResult:
     critical_analysis: str
     real_world_applications: str
     keywords: list[str]
+    category: str
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +128,9 @@ class SummarizerService:
         self.logger = get_logger(__name__)
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
 
-    async def analyze(self, transcript: str, title: str) -> KnowledgeResult:
+    async def analyze(
+        self, transcript: str, title: str, categories: list[dict[str, str]]
+    ) -> KnowledgeResult:
         """Analyze a video transcript into structured knowledge sections.
 
         Args:
@@ -139,6 +148,14 @@ class SummarizerService:
             "Analyzing transcript for '%s' (%d chars)", title, len(transcript)
         )
 
+        cat_lines = "\n".join(f"- `{c['slug']}`: {c['name']}" for c in categories)
+        category_instruction = (
+            f"\n\n### category\n"
+            f"- Classify this video into exactly one of these categories by returning its slug:\n{cat_lines}\n"
+            f"- If none fit well, use `other`."
+        )
+        system_prompt = _SYSTEM_PROMPT + category_instruction
+
         user_message = f"## Video Title\n{title}\n\n## Transcript\n{transcript}"
 
         try:
@@ -146,7 +163,7 @@ class SummarizerService:
                 model="gpt-5.2",
                 temperature=0.3,
                 messages=[
-                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message},
                 ],
                 response_format=_KnowledgeSchema,
@@ -165,6 +182,7 @@ class SummarizerService:
                 critical_analysis=parsed.critical_analysis,
                 real_world_applications=parsed.real_world_applications,
                 keywords=parsed.keywords,
+                category=parsed.category,
             )
 
             self.logger.info(

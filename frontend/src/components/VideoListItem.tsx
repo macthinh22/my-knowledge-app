@@ -2,14 +2,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { Clock } from "lucide-react";
 import { KeywordChips } from "@/components/KeywordChips";
+import { Badge } from "@/components/ui/badge";
 import type { VideoListItem as VideoType } from "@/lib/api";
+import { categoryLabel, getCategoryBadgeClass } from "@/lib/categories";
 import { formatDuration } from "@/lib/format";
 
 interface VideoListItemProps {
   video: VideoType;
+  categoryNameMap?: Record<string, string>;
 }
 
-export function VideoListItem({ video }: VideoListItemProps) {
+export function VideoListItem({ video, categoryNameMap }: VideoListItemProps) {
   const thumbnail = video.thumbnail_url
     ?? `https://i.ytimg.com/vi/${video.youtube_id}/hqdefault.jpg`;
 
@@ -36,6 +39,14 @@ export function VideoListItem({ video }: VideoListItemProps) {
 
       <div className="flex flex-1 flex-col justify-center min-w-0">
         <h3 className="truncate text-sm font-medium">{video.title ?? "Untitled"}</h3>
+        {video.category && (
+          <Badge
+            variant="outline"
+            className={`mt-1 w-fit ${getCategoryBadgeClass(video.category)}`}
+          >
+            {categoryLabel(video.category, categoryNameMap)}
+          </Badge>
+        )}
         <p className="text-xs text-muted-foreground">
           {video.channel_name} &middot; {new Date(video.created_at).toLocaleDateString()}
         </p>

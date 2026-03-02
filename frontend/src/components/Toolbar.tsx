@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { TagSummary } from "@/lib/api";
+import type { Category, TagSummary } from "@/lib/api";
+import { CategoryManager } from "./CategoryManager";
 import { TagManager } from "./TagManager";
 import { ThemeToggle } from "./ThemeToggle";
 import { ViewToggle } from "./ViewToggle";
@@ -24,11 +25,16 @@ interface ToolbarProps {
   view: "grid" | "list";
   onViewChange: (view: "grid" | "list") => void;
   availableTags?: TagSummary[];
+  availableCategories?: Category[];
+  categoryVideoCounts?: Record<string, number>;
   selectedKeywords?: string[];
+  selectedCategory?: string | null;
   onKeywordsChange?: (keywords: string[]) => void;
+  onCategoryChange?: (category: string | null) => void;
   keywordFilterMode?: "all" | "any";
   onKeywordFilterModeChange?: (mode: "all" | "any") => void;
   onTagDataChanged?: () => Promise<void> | void;
+  onCategoryDataChanged?: (deletedSlug?: string) => Promise<void> | void;
 }
 
 export function Toolbar({
@@ -36,11 +42,16 @@ export function Toolbar({
   view,
   onViewChange,
   availableTags = [],
+  availableCategories = [],
+  categoryVideoCounts = {},
   selectedKeywords = [],
+  selectedCategory = null,
   onKeywordsChange,
+  onCategoryChange,
   keywordFilterMode = "all",
   onKeywordFilterModeChange,
   onTagDataChanged,
+  onCategoryDataChanged,
 }: ToolbarProps) {
   const [query, setQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -236,6 +247,30 @@ export function Toolbar({
           <ViewToggle view={view} onViewChange={onViewChange} />
           <ThemeToggle />
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 overflow-x-auto border-t px-6 py-2">
+        <Button
+          size="sm"
+          variant={selectedCategory === null ? "default" : "outline"}
+          onClick={() => onCategoryChange?.(null)}
+        >
+          All
+        </Button>
+        {availableCategories.map((category) => (
+          <Button
+            key={category.id}
+            size="sm"
+            variant={selectedCategory === category.slug ? "default" : "outline"}
+            onClick={() => onCategoryChange?.(category.slug)}
+          >
+            {category.name} ({categoryVideoCounts[category.slug] ?? 0})
+          </Button>
+        ))}
+        <CategoryManager
+          categories={availableCategories}
+          onChanged={(deletedSlug) => onCategoryDataChanged?.(deletedSlug)}
+        />
       </div>
     </header>
   );

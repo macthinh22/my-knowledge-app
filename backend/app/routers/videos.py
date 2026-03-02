@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.logging_config import get_logger
-from app.models import Video, VideoJob
+from app.models import Category, Video, VideoJob
 from app.schemas import (
     VideoCreate,
     VideoJobResponse,
@@ -127,6 +127,22 @@ async def update_video(
 
     if body.notes is not None:
         video.notes = body.notes
+
+    if "category" in body.model_fields_set:
+        if body.category is None:
+            video.category = None
+        else:
+            normalized_category = body.category.strip().lower()
+            result = await db.execute(
+                select(Category).where(Category.slug == normalized_category)
+            )
+            category = result.scalar_one_or_none()
+            if category is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Category does not exist",
+                )
+            video.category = normalized_category
 
     await db.flush()
     await db.refresh(video)

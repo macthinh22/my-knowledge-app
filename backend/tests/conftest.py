@@ -8,7 +8,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.database import get_db
-from app.models import TagAlias, Video, VideoJob
+from app.models import Category, TagAlias, Video, VideoJob
 
 
 # ---------------------------------------------------------------------------
@@ -52,12 +52,15 @@ class FakeDB:
         self.store: dict[uuid.UUID, Video] = {}
         self.job_store: dict[uuid.UUID, VideoJob] = {}
         self.alias_store: dict[uuid.UUID, TagAlias] = {}
+        self.category_store: dict[uuid.UUID, Category] = {}
 
     async def get(self, model, pk):
         if model is VideoJob:
             return self.job_store.get(pk)
         if model is TagAlias:
             return self.alias_store.get(pk)
+        if model is Category:
+            return self.category_store.get(pk)
         return self.store.get(pk)
 
     async def execute(self, stmt):
@@ -115,10 +118,29 @@ class FakeDB:
             result.scalar_one_or_none.return_value = aliases[0] if aliases else None
             return result
 
+        if "FROM categories" in sql:
+            categories = sorted(self.category_store.values(), key=lambda c: c.slug)
+            slug = params.get("slug_1")
+            if isinstance(slug, str):
+                categories = [row for row in categories if row.slug == slug]
+
+            result.scalars.return_value.all.return_value = categories
+            result.scalars.return_value.first.return_value = (
+                categories[0] if categories else None
+            )
+            result.scalar_one_or_none.return_value = (
+                categories[0] if categories else None
+            )
+            return result
+
         videos = sorted(self.store.values(), key=lambda v: v.created_at, reverse=True)
         youtube_id = params.get("youtube_id_1")
         if youtube_id is not None:
             videos = [v for v in videos if v.youtube_id == youtube_id]
+
+        category = params.get("category_1")
+        if category is not None:
+            videos = [v for v in videos if v.category == category]
 
         result.scalars.return_value.all.return_value = videos
         result.scalars.return_value.first.return_value = videos[0] if videos else None
@@ -133,6 +155,9 @@ class FakeDB:
             return
         if isinstance(obj, TagAlias):
             self.alias_store[obj.id] = obj
+            return
+        if isinstance(obj, Category):
+            self.category_store[obj.id] = obj
             return
         self.store[obj.id] = obj
 
@@ -153,6 +178,9 @@ class FakeDB:
             return
         if isinstance(obj, TagAlias):
             self.alias_store.pop(obj.id, None)
+            return
+        if isinstance(obj, Category):
+            self.category_store.pop(obj.id, None)
             return
         self.store.pop(obj.id, None)
 

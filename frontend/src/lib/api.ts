@@ -20,6 +20,7 @@ export interface VideoListItem {
     explanation: string | null;
     key_knowledge: string | null;
     keywords: string[] | null;
+    category: string | null;
     transcript_source: string | null;
     created_at: string;
     updated_at: string;
@@ -60,6 +61,13 @@ export interface TagAlias {
     canonical: string;
     created_at: string;
     updated_at: string;
+}
+
+export interface Category {
+    id: string;
+    slug: string;
+    name: string;
+    created_at: string;
 }
 
 export interface ApiError {
@@ -146,9 +154,33 @@ export function updateVideoNotes(id: string, notes: string) {
     });
 }
 
+export function updateVideoCategory(id: string, category: string | null) {
+    return request<Video>(`/api/videos/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ category }),
+    });
+}
+
 /** Delete a video entry. */
 export function deleteVideo(id: string) {
     return request<void>(`/api/videos/${id}`, {
+        method: "DELETE",
+    });
+}
+
+export function listCategories() {
+    return request<Category[]>("/api/categories");
+}
+
+export function createCategory(slug: string, name: string) {
+    return request<Category>("/api/categories", {
+        method: "POST",
+        body: JSON.stringify({ slug, name }),
+    });
+}
+
+export function deleteCategory(slug: string) {
+    return request<void>(`/api/categories/${encodeURIComponent(slug)}`, {
         method: "DELETE",
     });
 }

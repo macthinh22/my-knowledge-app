@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useCallback, useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Clock, Calendar, Loader2 } from "lucide-react";
@@ -15,11 +15,16 @@ import { DeleteButton } from "@/components/DeleteButton";
 import {
   getVideo,
   getVideoJob,
+  listCategories,
+  updateVideoCategory,
   isApiRequestError,
+  type Category,
   type Video,
   type VideoJob,
 } from "@/lib/api";
+import { categoryLabel, getCategoryBadgeClass } from "@/lib/categories";
 import { formatDuration } from "@/lib/format";
+import { useExtraction } from "@/context/extraction";
 import {
   POLLING_BASE_INTERVAL_MS,
   POLLING_MAX_FAILURES,
@@ -36,10 +41,51 @@ export default function VideoPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const { setVideos } = useExtraction();
   const [video, setVideo] = useState<Video | null>(null);
   const [job, setJob] = useState<VideoJob | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [savingCategory, setSavingCategory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCategories = async () => {
+      try {
+        const items = await listCategories();
+        if (!cancelled) {
+          setCategories(items);
+        }
+      } catch {
+        if (!cancelled) {
+          setCategories([]);
+        }
+      }
+    };
+
+    void loadCategories();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const categoryNameMap = Object.fromEntries(
+    categories.map((category) => [category.slug, category.name]),
+  );
+
+  const syncVideoInLibrary = useCallback((updatedVideo: Video) => {
+    setVideos((previous) => {
+      const existingIndex = previous.findIndex((item) => item.id === updatedVideo.id);
+      if (existingIndex === -1) {
+        return previous;
+      }
+
+      return previous.map((item) =>
+        item.id === updatedVideo.id ? { ...item, ...updatedVideo } : item,
+      );
+    });
+  }, [setVideos]);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +100,7 @@ export default function VideoPage({
         const loadedVideo = await getVideo(id);
         if (!cancelled) {
           setVideo(loadedVideo);
+          syncVideoInLibrary(loadedVideo);
         }
         return;
       } catch (videoError) {
@@ -77,6 +124,7 @@ export default function VideoPage({
             return;
           }
           setVideo(loadedVideo);
+          syncVideoInLibrary(loadedVideo);
           router.replace(`/video/${loadedJob.video_id}`);
           return;
         }
@@ -107,7 +155,7 @@ export default function VideoPage({
     return () => {
       cancelled = true;
     };
-  }, [id, router]);
+  }, [id, router, syncVideoInLibrary]);
 
   useEffect(() => {
     if (!job || !ACTIVE_JOB_STATUSES.has(job.status)) {
@@ -145,6 +193,7 @@ export default function VideoPage({
             return;
           }
           setVideo(loadedVideo);
+          syncVideoInLibrary(loadedVideo);
           setJob(null);
           setError("");
           router.replace(`/video/${latest.video_id}`);
@@ -188,7 +237,7 @@ export default function VideoPage({
         clearTimeout(timeoutRef);
       }
     };
-  }, [job, router]);
+  }, [job, router, syncVideoInLibrary]);
 
   if (loading) {
     return (
@@ -309,6 +358,50 @@ export default function VideoPage({
                   ))}
                 </div>
               )}
+
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Category
+                </p>
+                <select
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                  value={video.category ?? ""}
+                  disabled={savingCategory}
+                  onChange={async (e) => {
+                    const nextCategory = e.target.value || null;
+                    setSavingCategory(true);
+                    try {
+                      const updated = await updateVideoCategory(video.id, nextCategory);
+                      setVideo(updated);
+                      syncVideoInLibrary(updated);
+                    } catch (updateError) {
+                      const message =
+                        updateError instanceof Error
+                          ? updateError.message
+                          : "Failed to update category";
+                      setError(message);
+                    } finally {
+                      setSavingCategory(false);
+                    }
+                  }}
+                >
+                  <option value="">No category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.slug}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+
+                {video.category && (
+                  <Badge
+                    variant="outline"
+                    className={getCategoryBadgeClass(video.category)}
+                  >
+                    {categoryLabel(video.category, categoryNameMap)}
+                  </Badge>
+                )}
+              </div>
 
               <Separator className="my-4" />
 

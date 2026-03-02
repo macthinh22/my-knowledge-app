@@ -8,6 +8,7 @@ import pytest
 
 from app.services.summarizer import KnowledgeResult
 from app.services.youtube import VideoMetadata
+from app.models import Category
 from tests.conftest import make_video
 
 
@@ -31,6 +32,7 @@ MOCK_ANALYSIS = KnowledgeResult(
     critical_analysis="**Strengths**: Well-argued.\n**Weaknesses**: Lacks examples.",
     real_world_applications="- Application 1\n- Application 2",
     keywords=["test", "python"],
+    category="technology",
 )
 
 
@@ -162,6 +164,7 @@ class TestGetVideo:
         assert data["explanation"] is not None
         assert data["critical_analysis"] is not None
         assert data["real_world_applications"] is not None
+        assert data["category"] is None
 
     @pytest.mark.asyncio
     async def test_get_nonexistent_video(self, client, fake_db):
@@ -187,6 +190,25 @@ class TestUpdateVideo:
         )
         assert res.status_code == 200
         assert res.json()["notes"] == "My updated notes"
+
+    @pytest.mark.asyncio
+    async def test_update_category(self, client, fake_db):
+        vid = make_video()
+        fake_db.store[vid.id] = vid
+        category = Category(
+            id=uuid.uuid4(),
+            slug="technology",
+            name="Technology",
+            created_at=datetime(2026, 1, 15, tzinfo=timezone.utc),
+        )
+        fake_db.category_store[category.id] = category
+
+        res = await client.patch(
+            f"/api/videos/{vid.id}",
+            json={"category": "technology"},
+        )
+        assert res.status_code == 200
+        assert res.json()["category"] == "technology"
 
     @pytest.mark.asyncio
     async def test_update_nonexistent(self, client, fake_db):
@@ -277,3 +299,60 @@ class TestTags:
         delete_res = await client.delete("/api/tags/machine learning")
         assert delete_res.status_code == 200
         assert "machine learning" not in fake_db.store[vid.id].keywords
+
+
+class TestCategories:
+    @pytest.mark.asyncio
+    async def test_list_categories(self, client, fake_db):
+        category = Category(
+            id=uuid.uuid4(),
+            slug="technology",
+            name="Technology",
+            created_at=datetime(2026, 1, 15, tzinfo=timezone.utc),
+        )
+        fake_db.category_store[category.id] = category
+
+        res = await client.get("/api/categories")
+        assert res.status_code == 200
+        data = res.json()
+        assert len(data) == 1
+        assert data[0]["slug"] == "technology"
+
+    @pytest.mark.asyncio
+    async def test_create_category(self, client, fake_db):
+        res = await client.post(
+            "/api/categories",
+            json={"slug": "business-finance", "name": "Business & Finance"},
+        )
+        assert res.status_code == 201
+        assert res.json()["slug"] == "business-finance"
+
+    @pytest.mark.asyncio
+    async def test_delete_category_clears_video_category(self, client, fake_db):
+        category = Category(
+            id=uuid.uuid4(),
+            slug="custom-learning",
+            name="Custom Learning",
+            created_at=datetime(2026, 1, 15, tzinfo=timezone.utc),
+        )
+        fake_db.category_store[category.id] = category
+        vid = make_video(category="custom-learning")
+        fake_db.store[vid.id] = vid
+
+        res = await client.delete("/api/categories/custom-learning")
+        assert res.status_code == 204
+        assert fake_db.store[vid.id].category is None
+
+    @pytest.mark.asyncio
+    async def test_delete_default_category_blocked(self, client, fake_db):
+        category = Category(
+            id=uuid.uuid4(),
+            slug="technology",
+            name="Technology",
+            created_at=datetime(2026, 1, 15, tzinfo=timezone.utc),
+        )
+        fake_db.category_store[category.id] = category
+
+        res = await client.delete("/api/categories/technology")
+        assert res.status_code == 400
+        assert "default" in res.json()["detail"].lower()

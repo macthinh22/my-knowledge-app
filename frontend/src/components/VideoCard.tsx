@@ -2,14 +2,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { Clock, Play } from "lucide-react";
 import { KeywordChips } from "@/components/KeywordChips";
+import { Badge } from "@/components/ui/badge";
 import type { VideoListItem } from "@/lib/api";
+import { categoryLabel, getCategoryBadgeClass } from "@/lib/categories";
 import { formatDuration } from "@/lib/format";
 
 interface VideoCardProps {
   video: VideoListItem;
+  categoryNameMap?: Record<string, string>;
 }
 
-export function VideoCard({ video }: VideoCardProps) {
+export function VideoCard({ video, categoryNameMap }: VideoCardProps) {
   const thumbnail = video.thumbnail_url
     ?? `https://i.ytimg.com/vi/${video.youtube_id}/hqdefault.jpg`;
 
@@ -39,6 +42,14 @@ export function VideoCard({ video }: VideoCardProps) {
           <h3 className="line-clamp-2 text-sm font-medium leading-snug">
             {video.title ?? "Untitled"}
           </h3>
+          {video.category && (
+            <Badge
+              variant="outline"
+              className={`mt-1 ${getCategoryBadgeClass(video.category)}`}
+            >
+              {categoryLabel(video.category, categoryNameMap)}
+            </Badge>
+          )}
           <p className="mt-1 text-xs text-muted-foreground">
             {video.channel_name}
           </p>

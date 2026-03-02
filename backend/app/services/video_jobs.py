@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from app.database import async_session
 from app.logging_config import get_logger
-from app.models import Video, VideoJob
+from app.models import Category, Video, VideoJob
 from app.services.summarizer import SummarizerService
 from app.services.tags import canonicalize_keywords
 from app.services.transcription import TranscriptionService
@@ -72,7 +72,21 @@ async def run_video_job(job_id: uuid.UUID) -> None:
                 step_label=JOB_STEPS[2],
             )
 
-            analysis = await summarizer_service.analyze(transcript, metadata.title)
+            cats_result = await db.execute(select(Category))
+            category_rows = cats_result.scalars().all()
+            categories = [{"slug": c.slug, "name": c.name} for c in category_rows]
+            analysis = await summarizer_service.analyze(
+                transcript, metadata.title, categories
+            )
+
+            allowed_category_slugs = {c["slug"] for c in categories}
+            if analysis.category in allowed_category_slugs:
+                selected_category = analysis.category
+            elif "other" in allowed_category_slugs:
+                selected_category = "other"
+            else:
+                selected_category = None
+
             canonical_keywords = await canonicalize_keywords(db, analysis.keywords)
 
             await _set_job_state(
@@ -101,6 +115,7 @@ async def run_video_job(job_id: uuid.UUID) -> None:
                     critical_analysis=analysis.critical_analysis,
                     real_world_applications=analysis.real_world_applications,
                     keywords=canonical_keywords,
+                    category=selected_category,
                     transcript_source=transcript_source,
                 )
                 db.add(video)
@@ -108,6 +123,7 @@ async def run_video_job(job_id: uuid.UUID) -> None:
                 await db.refresh(video)
             else:
                 video.keywords = canonical_keywords
+                video.category = selected_category
 
             await _set_job_state(
                 db,

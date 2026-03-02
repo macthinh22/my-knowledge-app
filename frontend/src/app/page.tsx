@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, VideoOff, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { PendingVideoCard } from "@/components/PendingVideoCard";
 import { VideoCard } from "@/components/VideoCard";
 import { VideoListItem } from "@/components/VideoListItem";
 import { useExtraction } from "@/context/extraction";
-import { listVideos, type TagSummary } from "@/lib/api";
+import { listCategories, listVideos, type Category, type TagSummary } from "@/lib/api";
 
 function normalizeTag(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
@@ -28,8 +28,31 @@ export default function HomePage() {
 
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [keywordFilterMode, setKeywordFilterMode] = useState<"all" | "any">("all");
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCategories = async () => {
+      try {
+        const items = await listCategories();
+        if (!cancelled) {
+          setCategories(items);
+        }
+      } catch {
+        if (!cancelled) {
+          setCategories([]);
+        }
+      }
+    };
+
+    void loadCategories();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const allKeywords = useMemo<TagSummary[]>(() => {
     const map = new Map<string, { usage: number; lastUsed: string }>();
@@ -83,8 +106,27 @@ export default function HomePage() {
         return selectedKeywords.every((kw) => tags.has(kw));
       });
     }
+    if (selectedCategory) {
+      result = result.filter((v) => v.category === selectedCategory);
+    }
     return result;
-  }, [videos, search, selectedKeywords, keywordFilterMode]);
+  }, [videos, search, selectedKeywords, keywordFilterMode, selectedCategory]);
+
+  const categoryNameMap = useMemo(
+    () => Object.fromEntries(categories.map((category) => [category.slug, category.name])),
+    [categories],
+  );
+
+  const categoryVideoCounts = useMemo<Record<string, number>>(() => {
+    const counts: Record<string, number> = {};
+    videos.forEach((video) => {
+      if (!video.category) {
+        return;
+      }
+      counts[video.category] = (counts[video.category] ?? 0) + 1;
+    });
+    return counts;
+  }, [videos]);
 
   const refreshAfterTagMutation = useCallback(async () => {
     const videosList = await listVideos();
@@ -95,6 +137,45 @@ export default function HomePage() {
     setSelectedKeywords((prev) => prev.filter((kw) => validTags.has(kw)));
   }, [setVideos]);
 
+  const refreshCategories = useCallback(async (deletedSlug?: string) => {
+    if (deletedSlug) {
+      setCategories((prev) => prev.filter((category) => category.slug !== deletedSlug));
+      setVideos((prev) =>
+        prev.map((video) =>
+          video.category === deletedSlug ? { ...video, category: null } : video,
+        ),
+      );
+      setSelectedCategory((prev) => (prev === deletedSlug ? null : prev));
+    }
+
+    const [videosResult, categoriesResult] = await Promise.allSettled([
+      listVideos(),
+      listCategories(),
+    ]);
+
+    if (videosResult.status === "fulfilled") {
+      const nextVideos = deletedSlug
+        ? videosResult.value.map((video) =>
+            video.category === deletedSlug ? { ...video, category: null } : video,
+          )
+        : videosResult.value;
+      setVideos(nextVideos);
+    }
+
+    if (categoriesResult.status === "fulfilled") {
+      const categoryList = deletedSlug
+        ? categoriesResult.value.filter((category) => category.slug !== deletedSlug)
+        : categoriesResult.value;
+      setCategories(categoryList);
+      if (
+        selectedCategory &&
+        !categoryList.some((category) => category.slug === selectedCategory)
+      ) {
+        setSelectedCategory(null);
+      }
+    }
+  }, [selectedCategory, setVideos]);
+
   return (
     <div className="min-h-screen bg-background">
       <Toolbar
@@ -102,11 +183,16 @@ export default function HomePage() {
         view={view}
         onViewChange={setView}
         availableTags={allKeywords}
+        availableCategories={categories}
+        categoryVideoCounts={categoryVideoCounts}
+        selectedCategory={selectedCategory}
         selectedKeywords={selectedKeywords}
+        onCategoryChange={setSelectedCategory}
         onKeywordsChange={setSelectedKeywords}
         keywordFilterMode={keywordFilterMode}
         onKeywordFilterModeChange={setKeywordFilterMode}
         onTagDataChanged={refreshAfterTagMutation}
+        onCategoryDataChanged={refreshCategories}
       />
 
       <main className="px-6 py-6">
@@ -168,7 +254,11 @@ export default function HomePage() {
           <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] items-stretch gap-4">
             {activeJob && <PendingVideoCard job={activeJob} view="grid" />}
             {filtered.map((video) => (
-              <VideoCard key={video.id} video={video} />
+              <VideoCard
+                key={video.id}
+                video={video}
+                categoryNameMap={categoryNameMap}
+              />
             ))}
           </div>
         )}
@@ -177,7 +267,11 @@ export default function HomePage() {
           <div className="space-y-1">
             {activeJob && <PendingVideoCard job={activeJob} view="list" />}
             {filtered.map((video) => (
-              <VideoListItem key={video.id} video={video} />
+              <VideoListItem
+                key={video.id}
+                video={video}
+                categoryNameMap={categoryNameMap}
+              />
             ))}
           </div>
         )}

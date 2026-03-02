@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.logging_config import setup_logging
+from app.routers.categories import router as categories_router
 from app.routers.tags import router as tags_router
 from app.routers.videos import router as videos_router
 from app.scheduler import start_scheduler, stop_scheduler
@@ -42,6 +43,7 @@ app.add_middleware(
 # Routers
 app.include_router(videos_router)
 app.include_router(tags_router)
+app.include_router(categories_router)
 
 
 @app.get("/api/health")
