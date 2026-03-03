@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import ARRAY, String, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -215,7 +215,7 @@ async def get_related_videos(
     all_result = await db.execute(
         select(Video).where(
             Video.id != video_id,
-            Video.keywords.overlap(video.keywords),
+            Video.keywords.bool_op("&&")(cast(video.keywords, ARRAY(String))),
         )
     )
     candidates = all_result.scalars().all()
