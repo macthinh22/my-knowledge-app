@@ -69,13 +69,14 @@ export function VideoActionDropdown({
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          size="icon-xs"
+          size="icon-sm"
           disabled={disabled}
           aria-label="Open video actions"
+          className="rounded-full bg-black/40 text-white ring-2 ring-white/30 backdrop-blur-sm hover:bg-black/60 hover:text-white"
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
         >
-          <MoreVertical className="h-4 w-4" />
+          <MoreVertical className="h-5 w-5" />
         </Button>
       </DropdownMenuTrigger>
 

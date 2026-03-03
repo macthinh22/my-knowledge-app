@@ -35,15 +35,15 @@ export function VideoCard({
     ?? `https://i.ytimg.com/vi/${video.youtube_id}/hqdefault.jpg`;
 
   return (
-    <div className="relative h-full">
-      <Link href={`/video/${video.id}`} className="group block h-full">
+    <div className="group relative h-full">
+      <Link href={`/video/${video.id}`} className="group/link block h-full">
         <div className="flex h-full flex-col overflow-hidden rounded-lg bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
           <div className="relative aspect-video flex-none overflow-hidden">
             <Image
               src={thumbnail}
               alt={video.title ?? "Video thumbnail"}
               fill
-              className="object-cover transition-transform duration-200 group-hover:scale-105"
+              className="object-cover transition-transform duration-200 group-hover/link:scale-105"
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             />
             {video.duration && (
@@ -52,8 +52,8 @@ export function VideoCard({
                 {formatDuration(video.duration)}
               </span>
             )}
-            <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/10">
-              <Play className="h-10 w-10 text-white opacity-0 transition-opacity group-hover:opacity-80" fill="white" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover/link:bg-black/10">
+              <Play className="h-10 w-10 text-white opacity-0 transition-opacity group-hover/link:opacity-80" fill="white" />
             </div>
           </div>
 
@@ -80,7 +80,7 @@ export function VideoCard({
         </div>
       </Link>
 
-      <div className="absolute right-2 top-2 z-20">
+      <div className="absolute right-2 top-2 z-20 opacity-0 transition-all duration-150 group-hover:opacity-100 [&:has([data-state=open])]:opacity-100 hover:scale-110">
         <VideoActionDropdown
           categories={categories}
           currentCategory={video.category}

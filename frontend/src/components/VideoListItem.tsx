@@ -74,7 +74,7 @@ export function VideoListItem({
         </div>
       </Link>
 
-      <div className="shrink-0">
+      <div className="shrink-0 opacity-0 transition-all duration-150 group-hover:opacity-100 [&:has([data-state=open])]:opacity-100 hover:scale-110">
         <VideoActionDropdown
           categories={categories}
           currentCategory={video.category}

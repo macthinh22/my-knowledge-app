@@ -1,13 +1,19 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Search, X, BookOpen, SlidersHorizontal, Check, ArrowUpDown, BarChart3 } from "lucide-react";
+import { Search, X, BookOpen, SlidersHorizontal, Check, ArrowUpDown, BarChart3, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Category, TagSummary } from "@/lib/api";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { CategoryManager } from "./CategoryManager";
 import { TagManager } from "./TagManager";
 import { ThemeToggle } from "./ThemeToggle";
@@ -138,20 +144,30 @@ export function Toolbar({
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="relative">
-            <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <select
-              value={sortOption}
-              onChange={(e) => onSortChange?.(e.target.value as SortOption)}
-              className="h-9 appearance-none rounded-md border bg-background pl-8 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ArrowUpDown className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">
+                  {SORT_OPTIONS.find((o) => o.value === sortOption)?.label ?? "Sort"}
+                </span>
+                <ChevronDown className="h-3 w-3 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
               {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
+                <DropdownMenuItem
+                  key={opt.value}
+                  className={cn(
+                    sortOption === opt.value && "bg-primary/10 font-medium"
+                  )}
+                  onClick={() => onSortChange?.(opt.value)}
+                >
                   {opt.label}
-                </option>
+                </DropdownMenuItem>
               ))}
-            </select>
-          </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
