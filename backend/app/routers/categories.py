@@ -1,12 +1,12 @@
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models import Category, Video
-from app.schemas import CategoryCreate, CategoryResponse
+from app.schemas import CategoryCreate, CategoryResponse, CategoryUpdate
 
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
@@ -20,6 +20,18 @@ _DEFAULT_CATEGORY_SLUGS = {
     "knowledge-education",
     "other",
 }
+VALID_COLORS = {
+    "slate",
+    "red",
+    "orange",
+    "amber",
+    "emerald",
+    "teal",
+    "blue",
+    "indigo",
+    "violet",
+    "rose",
+}
 
 
 def _normalize_slug(value: str) -> str:
@@ -28,7 +40,11 @@ def _normalize_slug(value: str) -> str:
 
 @router.get("", response_model=list[CategoryResponse])
 async def list_categories(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Category).order_by(Category.created_at.asc()))
+    result = await db.execute(
+        select(Category).order_by(
+            Category.display_order.asc(), Category.created_at.asc()
+        )
+    )
     return result.scalars().all()
 
 
@@ -55,7 +71,14 @@ async def create_category(body: CategoryCreate, db: AsyncSession = Depends(get_d
             detail="Category already exists",
         )
 
-    category = Category(slug=slug, name=name)
+    max_order_result = await db.execute(
+        select(func.coalesce(func.max(Category.display_order), -1))
+    )
+    next_order = max_order_result.scalar_one() + 1
+
+    category = Category(
+        slug=slug, name=name, color=body.color, display_order=next_order
+    )
     db.add(category)
     await db.flush()
     await db.refresh(category)
@@ -89,3 +112,43 @@ async def delete_category(slug: str, db: AsyncSession = Depends(get_db)):
         video.category = None
 
     await db.delete(category)
+
+
+@router.patch("/{slug}", response_model=CategoryResponse)
+async def update_category(
+    slug: str, body: CategoryUpdate, db: AsyncSession = Depends(get_db)
+):
+    normalized_slug = _normalize_slug(slug)
+    category_result = await db.execute(
+        select(Category).where(Category.slug == normalized_slug)
+    )
+    category = category_result.scalar_one_or_none()
+    if category is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Category not found",
+        )
+
+    if body.name is not None:
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Name cannot be empty",
+            )
+        category.name = name
+
+    if body.color is not None:
+        if body.color not in VALID_COLORS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid color. Must be one of: {', '.join(sorted(VALID_COLORS))}",
+            )
+        category.color = body.color
+
+    if body.display_order is not None:
+        category.display_order = body.display_order
+
+    await db.flush()
+    await db.refresh(category)
+    return category
