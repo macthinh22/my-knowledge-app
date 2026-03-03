@@ -14,7 +14,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CategoryManager } from "./CategoryManager";
 import { TagManager } from "./TagManager";
 import { ThemeToggle } from "./ThemeToggle";
 import { ViewToggle } from "./ViewToggle";
@@ -301,6 +300,11 @@ export function Toolbar({
               <BarChart3 className="h-4 w-4" />
             </Link>
           </Button>
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/categories">
+              <SlidersHorizontal className="h-4 w-4" />
+            </Link>
+          </Button>
           <ThemeToggle />
         </div>
       </div>
@@ -323,11 +327,6 @@ export function Toolbar({
             {category.name} ({categoryVideoCounts[category.slug] ?? 0})
           </Button>
         ))}
-        <CategoryManager
-          categories={availableCategories}
-          onChanged={(deletedSlug) => onCategoryDataChanged?.(deletedSlug)}
-        />
-
         <div className="ml-auto flex items-center gap-1.5 border-l pl-3">
           {[
             { value: null, label: "All" },
