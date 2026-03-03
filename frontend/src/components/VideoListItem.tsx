@@ -9,7 +9,11 @@ import type {
   CollectionItem,
   VideoListItem as VideoType,
 } from "@/lib/api";
-import { categoryLabel, getCategoryBadgeClass } from "@/lib/categories";
+import {
+  buildCategoryColorMap,
+  categoryLabel,
+  getCategoryBadgeClass,
+} from "@/lib/categories";
 import { formatDuration } from "@/lib/format";
 
 interface VideoListItemProps {
@@ -37,6 +41,7 @@ export function VideoListItem({
 }: VideoListItemProps) {
   const thumbnail = video.thumbnail_url
     ?? `https://i.ytimg.com/vi/${video.youtube_id}/hqdefault.jpg`;
+  const categoryColorMap = buildCategoryColorMap(categories);
 
   return (
     <div className="group flex items-center gap-2 rounded-lg p-2 transition-colors hover:bg-accent">
@@ -62,7 +67,7 @@ export function VideoListItem({
           {video.category && (
             <Badge
               variant="outline"
-              className={`mt-1 w-fit ${getCategoryBadgeClass(video.category)}`}
+              className={`mt-1 w-fit ${getCategoryBadgeClass(categoryColorMap[video.category ?? ""] ?? null)}`}
             >
               {categoryLabel(video.category, categoryNameMap)}
             </Badge>

@@ -24,7 +24,11 @@ import {
   type VideoJob,
   type VideoListItem,
 } from "@/lib/api";
-import { categoryLabel, getCategoryBadgeClass } from "@/lib/categories";
+import {
+  buildCategoryColorMap,
+  categoryLabel,
+  getCategoryBadgeClass,
+} from "@/lib/categories";
 import { formatDuration } from "@/lib/format";
 import { useExtraction } from "@/context/extraction";
 import {
@@ -76,6 +80,7 @@ export default function VideoPage({
   const categoryNameMap = Object.fromEntries(
     categories.map((category) => [category.slug, category.name]),
   );
+  const categoryColorMap = buildCategoryColorMap(categories);
 
   const syncVideoInLibrary = useCallback((updatedVideo: Video) => {
     setVideos((previous) => {
@@ -404,7 +409,7 @@ export default function VideoPage({
                 {video.category && (
                   <Badge
                     variant="outline"
-                    className={getCategoryBadgeClass(video.category)}
+                    className={getCategoryBadgeClass(categoryColorMap[video.category ?? ""] ?? null)}
                   >
                     {categoryLabel(video.category, categoryNameMap)}
                   </Badge>

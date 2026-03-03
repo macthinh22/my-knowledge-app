@@ -5,7 +5,11 @@ import { KeywordChips } from "@/components/KeywordChips";
 import { VideoActionDropdown } from "@/components/VideoActionDropdown";
 import { Badge } from "@/components/ui/badge";
 import type { Category, CollectionItem, VideoListItem } from "@/lib/api";
-import { categoryLabel, getCategoryBadgeClass } from "@/lib/categories";
+import {
+  buildCategoryColorMap,
+  categoryLabel,
+  getCategoryBadgeClass,
+} from "@/lib/categories";
 import { formatDuration } from "@/lib/format";
 
 interface VideoCardProps {
@@ -33,6 +37,7 @@ export function VideoCard({
 }: VideoCardProps) {
   const thumbnail = video.thumbnail_url
     ?? `https://i.ytimg.com/vi/${video.youtube_id}/hqdefault.jpg`;
+  const categoryColorMap = buildCategoryColorMap(categories);
 
   return (
     <div className="group relative h-full">
@@ -64,7 +69,7 @@ export function VideoCard({
             {video.category && (
               <Badge
                 variant="outline"
-                className={`mt-1 ${getCategoryBadgeClass(video.category)}`}
+                className={`mt-1 ${getCategoryBadgeClass(categoryColorMap[video.category ?? ""] ?? null)}`}
               >
                 {categoryLabel(video.category, categoryNameMap)}
               </Badge>
