@@ -199,21 +199,6 @@ export default function HomePage() {
     setSelectedKeywords((prev) => prev.filter((kw) => validTagNames.has(kw)));
   }, [refreshTags, refreshVideos]);
 
-  const refreshCategories = useCallback(
-    async (deletedSlug?: string) => {
-      if (deletedSlug) {
-        setCategories((prev) => prev.filter((c) => c.slug !== deletedSlug));
-        setSelectedCategory((prev) => (prev === deletedSlug ? null : prev));
-      }
-      const [cats] = await Promise.all([
-        listCategories().catch(() => categories),
-      ]);
-      setCategories(cats);
-      refreshVideos();
-    },
-    [categories, refreshVideos],
-  );
-
   const handleVideoCategoryChange = useCallback(
     async (videoId: string, category: string | null) => {
       await updateVideoCategory(videoId, category);
@@ -316,7 +301,6 @@ export default function HomePage() {
         reviewStatus={reviewStatus}
         onReviewStatusChange={setReviewStatus}
         onTagDataChanged={refreshAfterTagMutation}
-        onCategoryDataChanged={refreshCategories}
       />
 
       <div className="flex flex-1">

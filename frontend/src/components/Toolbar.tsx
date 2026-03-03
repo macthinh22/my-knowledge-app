@@ -56,7 +56,6 @@ interface ToolbarProps {
   reviewStatus?: string | null;
   onReviewStatusChange?: (status: string | null) => void;
   onTagDataChanged?: () => Promise<void> | void;
-  onCategoryDataChanged?: (deletedSlug?: string) => Promise<void> | void;
 }
 
 export function Toolbar({
@@ -77,7 +76,6 @@ export function Toolbar({
   reviewStatus = null,
   onReviewStatusChange,
   onTagDataChanged,
-  onCategoryDataChanged,
 }: ToolbarProps) {
   const [query, setQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
