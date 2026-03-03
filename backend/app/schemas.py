@@ -117,12 +117,21 @@ class CategoryResponse(BaseModel):
     id: uuid.UUID
     slug: str
     name: str
+    color: str | None = None
+    display_order: int = 0
     created_at: datetime
 
 
 class CategoryCreate(BaseModel):
     slug: str
     name: str
+    color: str | None = None
+
+
+class CategoryUpdate(BaseModel):
+    name: str | None = None
+    color: str | None = None
+    display_order: int | None = None
 
 
 class TagRenameRequest(BaseModel):

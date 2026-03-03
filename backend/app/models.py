@@ -11,8 +11,18 @@ from app.database import Base
 collection_videos = Table(
     "collection_videos",
     Base.metadata,
-    Column("collection_id", UUID(as_uuid=True), ForeignKey("collections.id", ondelete="CASCADE"), primary_key=True),
-    Column("video_id", UUID(as_uuid=True), ForeignKey("videos.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "collection_id",
+        UUID(as_uuid=True),
+        ForeignKey("collections.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "video_id",
+        UUID(as_uuid=True),
+        ForeignKey("videos.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
 )
 
 
@@ -92,6 +102,8 @@ class Category(Base):
         String(50), unique=True, nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    color: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     def __repr__(self) -> str:
