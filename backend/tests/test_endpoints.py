@@ -489,13 +489,132 @@ class TestCategories:
         assert res.status_code == 400
         assert "default" in res.json()["detail"].lower()
 
+    @pytest.mark.asyncio
+    async def test_list_categories_ordered_by_display_order(self, client, fake_db):
+        first = Category(
+            id=uuid.uuid4(),
+            slug="a-first",
+            name="A First",
+            color="blue",
+            display_order=0,
+            created_at=datetime(2026, 1, 15, tzinfo=UTC),
+        )
+        middle = Category(
+            id=uuid.uuid4(),
+            slug="m-middle",
+            name="M Middle",
+            color="emerald",
+            display_order=1,
+            created_at=datetime(2026, 1, 15, tzinfo=UTC),
+        )
+        last = Category(
+            id=uuid.uuid4(),
+            slug="z-last",
+            name="Z Last",
+            color="rose",
+            display_order=2,
+            created_at=datetime(2026, 1, 15, tzinfo=UTC),
+        )
+        fake_db.category_store[last.id] = last
+        fake_db.category_store[first.id] = first
+        fake_db.category_store[middle.id] = middle
+
+        resp = await client.get("/api/categories")
+        body = resp.json()
+        slugs = [c["slug"] for c in body]
+        assert slugs == ["a-first", "m-middle", "z-last"]
+
+
+class TestCategoryUpdate:
+    @pytest.mark.asyncio
+    async def test_update_category_name(self, client, fake_db):
+        cat = Category(
+            id=uuid.uuid4(),
+            slug="test-cat",
+            name="Test",
+            color="slate",
+            display_order=0,
+            created_at=datetime(2026, 1, 15, tzinfo=UTC),
+        )
+        fake_db.category_store[cat.id] = cat
+
+        resp = await client.patch(
+            f"/api/categories/{cat.slug}",
+            json={"name": "Updated Name"},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["name"] == "Updated Name"
+        assert body["slug"] == "test-cat"
+
+    @pytest.mark.asyncio
+    async def test_update_category_color(self, client, fake_db):
+        cat = Category(
+            id=uuid.uuid4(),
+            slug="test-cat",
+            name="Test",
+            color="slate",
+            display_order=0,
+            created_at=datetime(2026, 1, 15, tzinfo=UTC),
+        )
+        fake_db.category_store[cat.id] = cat
+
+        resp = await client.patch(
+            f"/api/categories/{cat.slug}",
+            json={"color": "blue"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["color"] == "blue"
+
+    @pytest.mark.asyncio
+    async def test_update_category_invalid_color(self, client, fake_db):
+        cat = Category(
+            id=uuid.uuid4(),
+            slug="test-cat",
+            name="Test",
+            color="slate",
+            display_order=0,
+            created_at=datetime(2026, 1, 15, tzinfo=UTC),
+        )
+        fake_db.category_store[cat.id] = cat
+
+        resp = await client.patch(
+            f"/api/categories/{cat.slug}",
+            json={"color": "neon-pink"},
+        )
+        assert resp.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_update_nonexistent_category(self, client, fake_db):
+        resp = await client.patch(
+            "/api/categories/does-not-exist",
+            json={"name": "New Name"},
+        )
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_update_empty_name(self, client, fake_db):
+        cat = Category(
+            id=uuid.uuid4(),
+            slug="test-cat",
+            name="Test",
+            color="slate",
+            display_order=0,
+            created_at=datetime(2026, 1, 15, tzinfo=UTC),
+        )
+        fake_db.category_store[cat.id] = cat
+
+        resp = await client.patch(
+            f"/api/categories/{cat.slug}",
+            json={"name": "  "},
+        )
+        assert resp.status_code == 400
+
 
 class TestCollections:
     @pytest.mark.asyncio
     async def test_create_collection(self, client, fake_db):
-        resp = await client.post(
-            "/api/collections", json={"name": "System Design"}
-        )
+        resp = await client.post("/api/collections", json={"name": "System Design"})
         assert resp.status_code == 201
         assert resp.json()["name"] == "System Design"
 
@@ -511,9 +630,7 @@ class TestCollections:
     async def test_add_video_to_collection(self, client, fake_db):
         v = make_video()
         fake_db.store[v.id] = v
-        col_resp = await client.post(
-            "/api/collections", json={"name": "My Collection"}
-        )
+        col_resp = await client.post("/api/collections", json={"name": "My Collection"})
         col_id = col_resp.json()["id"]
 
         resp = await client.post(
@@ -526,9 +643,7 @@ class TestCollections:
     async def test_remove_video_from_collection(self, client, fake_db):
         v = make_video()
         fake_db.store[v.id] = v
-        col_resp = await client.post(
-            "/api/collections", json={"name": "My Collection"}
-        )
+        col_resp = await client.post("/api/collections", json={"name": "My Collection"})
         col_id = col_resp.json()["id"]
         await client.post(
             f"/api/collections/{col_id}/videos",
@@ -540,9 +655,7 @@ class TestCollections:
 
     @pytest.mark.asyncio
     async def test_delete_collection(self, client, fake_db):
-        col_resp = await client.post(
-            "/api/collections", json={"name": "To Delete"}
-        )
+        col_resp = await client.post("/api/collections", json={"name": "To Delete"})
         col_id = col_resp.json()["id"]
         resp = await client.delete(f"/api/collections/{col_id}")
         assert resp.status_code == 204
