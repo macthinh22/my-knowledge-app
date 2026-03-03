@@ -62,7 +62,27 @@ function slugify(name: string): string {
 
 function formatApiError(error: unknown, fallback: string): string {
   if (isApiRequestError(error) && error.detail) {
-    return error.detail;
+    const detail = error.detail as unknown;
+
+    if (typeof detail === "string") {
+      return detail;
+    }
+
+    if (Array.isArray(detail)) {
+      const first = detail[0] as { msg?: unknown } | undefined;
+      if (typeof first?.msg === "string") {
+        return first.msg;
+      }
+    }
+
+    if (detail && typeof detail === "object") {
+      const message = (detail as { msg?: unknown }).msg;
+      if (typeof message === "string") {
+        return message;
+      }
+    }
+
+    return fallback;
   }
   if (error instanceof Error && error.message) {
     return error.message;
@@ -126,7 +146,7 @@ export default function CategoriesPage() {
 
   const loadVideoCounts = useCallback(async () => {
     const counts: Record<string, number> = {};
-    const limit = 200;
+    const limit = 100;
     let offset = 0;
     let total = 0;
 

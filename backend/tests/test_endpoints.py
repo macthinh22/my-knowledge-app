@@ -305,6 +305,8 @@ class TestUpdateVideo:
             id=uuid.uuid4(),
             slug="technology",
             name="Technology",
+            color="blue",
+            display_order=0,
             created_at=datetime(2026, 1, 15, tzinfo=UTC),
         )
         fake_db.category_store[category.id] = category
@@ -440,6 +442,8 @@ class TestCategories:
             id=uuid.uuid4(),
             slug="technology",
             name="Technology",
+            color="blue",
+            display_order=0,
             created_at=datetime(2026, 1, 15, tzinfo=UTC),
         )
         fake_db.category_store[category.id] = category
@@ -465,6 +469,8 @@ class TestCategories:
             id=uuid.uuid4(),
             slug="custom-learning",
             name="Custom Learning",
+            color="teal",
+            display_order=3,
             created_at=datetime(2026, 1, 15, tzinfo=UTC),
         )
         fake_db.category_store[category.id] = category
@@ -481,6 +487,8 @@ class TestCategories:
             id=uuid.uuid4(),
             slug="technology",
             name="Technology",
+            color="blue",
+            display_order=0,
             created_at=datetime(2026, 1, 15, tzinfo=UTC),
         )
         fake_db.category_store[category.id] = category
