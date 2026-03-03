@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,10 +18,14 @@ from app.services.tags import canonicalize_keywords, collect_tag_stats, normaliz
 router = APIRouter(prefix="/api/tags", tags=["tags"])
 
 
-@router.get("", response_model=list[TagSummaryResponse])
-async def list_tags(db: AsyncSession = Depends(get_db)):
+async def _build_tag_summaries(
+    db: AsyncSession,
+    *,
+    search: str | None,
+    limit: int,
+) -> list[TagSummaryResponse]:
     videos_result = await db.execute(select(Video).order_by(Video.created_at.desc()))
-    videos = videos_result.scalars().all()
+    videos = list(videos_result.scalars().all())
     aliases_result = await db.execute(select(TagAlias))
     aliases = aliases_result.scalars().all()
 
@@ -27,7 +33,13 @@ async def list_tags(db: AsyncSession = Depends(get_db)):
     for alias in aliases:
         alias_by_canonical.setdefault(alias.canonical, []).append(alias.alias)
 
-    stats = collect_tag_stats(videos)
+    stats: list[dict[str, Any]] = collect_tag_stats(videos)
+    if search:
+        term = search.strip().lower()
+        stats = [item for item in stats if term in str(item["tag"]).lower()]
+
+    stats = stats[:limit]
+
     return [
         TagSummaryResponse(
             tag=str(item["tag"]),
@@ -37,6 +49,15 @@ async def list_tags(db: AsyncSession = Depends(get_db)):
         )
         for item in stats
     ]
+
+
+@router.get("", response_model=list[TagSummaryResponse])
+async def list_tags(
+    db: AsyncSession = Depends(get_db),
+    search: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    return await _build_tag_summaries(db, search=search, limit=limit)
 
 
 @router.get("/aliases", response_model=list[TagAliasResponse])
@@ -96,7 +117,7 @@ async def rename_tag(body: TagRenameRequest, db: AsyncSession = Depends(get_db))
         )
 
     if source == target:
-        return await list_tags(db)
+        return await _build_tag_summaries(db, search=None, limit=100)
 
     videos_result = await db.execute(select(Video))
     videos = videos_result.scalars().all()
@@ -129,7 +150,7 @@ async def rename_tag(body: TagRenameRequest, db: AsyncSession = Depends(get_db))
 
     await db.flush()
     await db.commit()
-    return await list_tags(db)
+    return await _build_tag_summaries(db, search=None, limit=100)
 
 
 @router.post("/merge", response_model=list[TagSummaryResponse])
@@ -177,7 +198,7 @@ async def merge_tags(body: TagMergeRequest, db: AsyncSession = Depends(get_db)):
 
     await db.flush()
     await db.commit()
-    return await list_tags(db)
+    return await _build_tag_summaries(db, search=None, limit=100)
 
 
 @router.delete("/{tag}", response_model=list[TagSummaryResponse])
@@ -206,4 +227,4 @@ async def delete_tag(tag: str, db: AsyncSession = Depends(get_db)):
 
     await db.flush()
     await db.commit()
-    return await list_tags(db)
+    return await _build_tag_summaries(db, search=None, limit=100)

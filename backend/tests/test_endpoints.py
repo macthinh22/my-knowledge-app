@@ -1,16 +1,15 @@
 """Tests for video CRUD endpoints with mocked services."""
 
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch
+from datetime import UTC, datetime
+from unittest.mock import patch
 
 import pytest
 
+from app.models import Category
 from app.services.summarizer import KnowledgeResult
 from app.services.youtube import VideoMetadata
-from app.models import Category
 from tests.conftest import make_video
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -99,7 +98,7 @@ class TestListVideos:
     async def test_list_empty(self, client, fake_db):
         res = await client.get("/api/videos")
         assert res.status_code == 200
-        assert res.json() == []
+        assert res.json() == {"items": [], "total": 0, "limit": 50, "offset": 0}
 
     @pytest.mark.asyncio
     async def test_list_with_videos(self, client, fake_db):
@@ -109,8 +108,115 @@ class TestListVideos:
         res = await client.get("/api/videos")
         assert res.status_code == 200
         data = res.json()
-        assert len(data) == 1
-        assert data[0]["title"] == "Test Video"
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["title"] == "Test Video"
+
+
+class TestListVideosPaginated:
+    @pytest.mark.asyncio
+    async def test_list_videos_returns_paginated_response(self, client, fake_db):
+        for i in range(5):
+            video = make_video(
+                title=f"Video {i}",
+                created_at=datetime(2024, 1, i + 1, tzinfo=UTC),
+            )
+            fake_db.store[video.id] = video
+
+        resp = await client.get("/api/videos?limit=2&offset=0")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "items" in body
+        assert "total" in body
+        assert body["total"] == 5
+        assert len(body["items"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_list_videos_offset(self, client, fake_db):
+        for i in range(5):
+            video = make_video(
+                title=f"Video {i}",
+                created_at=datetime(2024, 1, i + 1, tzinfo=UTC),
+            )
+            fake_db.store[video.id] = video
+
+        resp = await client.get("/api/videos?limit=2&offset=2")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["items"]) == 2
+        assert body["total"] == 5
+
+    @pytest.mark.asyncio
+    async def test_list_videos_default_limit(self, client, fake_db):
+        video = make_video()
+        fake_db.store[video.id] = video
+
+        resp = await client.get("/api/videos")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "items" in body
+        assert "total" in body
+
+
+class TestSearchVideos:
+    @pytest.mark.asyncio
+    async def test_search_by_title(self, client, fake_db):
+        v1 = make_video(
+            title="Learn Python Basics",
+            explanation="Intro course",
+            keywords=["basics"],
+        )
+        v2 = make_video(
+            title="Cooking with Gordon",
+            explanation="Kitchen tips",
+            keywords=["cooking"],
+        )
+        fake_db.store[v1.id] = v1
+        fake_db.store[v2.id] = v2
+
+        resp = await client.get("/api/videos?search=python")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 1
+        assert body["items"][0]["title"] == "Learn Python Basics"
+
+    @pytest.mark.asyncio
+    async def test_search_by_explanation(self, client, fake_db):
+        v1 = make_video(
+            title="Video A",
+            explanation="This video covers distributed systems and consensus algorithms",
+        )
+        v2 = make_video(
+            title="Video B",
+            explanation="This video covers cooking techniques",
+        )
+        fake_db.store[v1.id] = v1
+        fake_db.store[v2.id] = v2
+
+        resp = await client.get("/api/videos?search=distributed")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 1
+        assert body["items"][0]["title"] == "Video A"
+
+    @pytest.mark.asyncio
+    async def test_search_by_keywords(self, client, fake_db):
+        v1 = make_video(title="Video A", keywords=["react", "frontend"])
+        v2 = make_video(title="Video B", keywords=["python", "backend"])
+        fake_db.store[v1.id] = v1
+        fake_db.store[v2.id] = v2
+
+        resp = await client.get("/api/videos?search=react")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 1
+        assert body["items"][0]["title"] == "Video A"
 
 
 class TestVideoJobs:
@@ -199,7 +305,7 @@ class TestUpdateVideo:
             id=uuid.uuid4(),
             slug="technology",
             name="Technology",
-            created_at=datetime(2026, 1, 15, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 15, tzinfo=UTC),
         )
         fake_db.category_store[category.id] = category
 
@@ -257,11 +363,11 @@ class TestTags:
     async def test_list_tags_with_metadata(self, client, fake_db):
         fake_db.store[uuid.uuid4()] = make_video(
             keywords=["python", "ai", "AI"],
-            updated_at=datetime(2026, 1, 16, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 1, 16, tzinfo=UTC),
         )
         fake_db.store[uuid.uuid4()] = make_video(
             keywords=["python", "backend"],
-            updated_at=datetime(2026, 1, 20, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 1, 20, tzinfo=UTC),
         )
 
         res = await client.get("/api/tags")
@@ -301,6 +407,32 @@ class TestTags:
         assert "machine learning" not in fake_db.store[vid.id].keywords
 
 
+class TestListTagsWithSearch:
+    @pytest.mark.asyncio
+    async def test_search_tags(self, client, fake_db):
+        v = make_video(keywords=["python", "programming", "machine-learning"])
+        fake_db.store[v.id] = v
+
+        resp = await client.get("/api/tags?search=pro")
+
+        assert resp.status_code == 200
+        tags = resp.json()
+        tag_names = [tag["tag"] for tag in tags]
+        assert "programming" in tag_names
+        assert "machine-learning" not in tag_names
+
+    @pytest.mark.asyncio
+    async def test_tags_with_limit(self, client, fake_db):
+        v = make_video(keywords=["a", "b", "c", "d", "e"])
+        fake_db.store[v.id] = v
+
+        resp = await client.get("/api/tags?limit=3")
+
+        assert resp.status_code == 200
+        tags = resp.json()
+        assert len(tags) <= 3
+
+
 class TestCategories:
     @pytest.mark.asyncio
     async def test_list_categories(self, client, fake_db):
@@ -308,7 +440,7 @@ class TestCategories:
             id=uuid.uuid4(),
             slug="technology",
             name="Technology",
-            created_at=datetime(2026, 1, 15, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 15, tzinfo=UTC),
         )
         fake_db.category_store[category.id] = category
 
@@ -333,7 +465,7 @@ class TestCategories:
             id=uuid.uuid4(),
             slug="custom-learning",
             name="Custom Learning",
-            created_at=datetime(2026, 1, 15, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 15, tzinfo=UTC),
         )
         fake_db.category_store[category.id] = category
         vid = make_video(category="custom-learning")
@@ -349,10 +481,118 @@ class TestCategories:
             id=uuid.uuid4(),
             slug="technology",
             name="Technology",
-            created_at=datetime(2026, 1, 15, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 15, tzinfo=UTC),
         )
         fake_db.category_store[category.id] = category
 
         res = await client.delete("/api/categories/technology")
         assert res.status_code == 400
         assert "default" in res.json()["detail"].lower()
+
+
+class TestCollections:
+    @pytest.mark.asyncio
+    async def test_create_collection(self, client, fake_db):
+        resp = await client.post(
+            "/api/collections", json={"name": "System Design"}
+        )
+        assert resp.status_code == 201
+        assert resp.json()["name"] == "System Design"
+
+    @pytest.mark.asyncio
+    async def test_list_collections(self, client, fake_db):
+        await client.post("/api/collections", json={"name": "Collection A"})
+        await client.post("/api/collections", json={"name": "Collection B"})
+        resp = await client.get("/api/collections")
+        assert resp.status_code == 200
+        assert len(resp.json()) >= 2
+
+    @pytest.mark.asyncio
+    async def test_add_video_to_collection(self, client, fake_db):
+        v = make_video()
+        fake_db.store[v.id] = v
+        col_resp = await client.post(
+            "/api/collections", json={"name": "My Collection"}
+        )
+        col_id = col_resp.json()["id"]
+
+        resp = await client.post(
+            f"/api/collections/{col_id}/videos",
+            json={"video_id": str(v.id)},
+        )
+        assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_remove_video_from_collection(self, client, fake_db):
+        v = make_video()
+        fake_db.store[v.id] = v
+        col_resp = await client.post(
+            "/api/collections", json={"name": "My Collection"}
+        )
+        col_id = col_resp.json()["id"]
+        await client.post(
+            f"/api/collections/{col_id}/videos",
+            json={"video_id": str(v.id)},
+        )
+
+        resp = await client.delete(f"/api/collections/{col_id}/videos/{v.id}")
+        assert resp.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_delete_collection(self, client, fake_db):
+        col_resp = await client.post(
+            "/api/collections", json={"name": "To Delete"}
+        )
+        col_id = col_resp.json()["id"]
+        resp = await client.delete(f"/api/collections/{col_id}")
+        assert resp.status_code == 204
+
+
+class TestViewTracking:
+    @pytest.mark.asyncio
+    async def test_get_video_increments_view_count(self, client, fake_db):
+        v = make_video()
+        v.view_count = 0
+        v.last_viewed_at = None
+        fake_db.store[v.id] = v
+
+        await client.get(f"/api/videos/{v.id}")
+        assert v.view_count == 1
+        assert v.last_viewed_at is not None
+
+        await client.get(f"/api/videos/{v.id}")
+        assert v.view_count == 2
+
+
+class TestReviewStatusFilter:
+    @pytest.mark.asyncio
+    async def test_filter_never_viewed(self, client, fake_db):
+        v1 = make_video(title="Never Viewed", view_count=0)
+        v2 = make_video(title="Viewed", view_count=3)
+        fake_db.store[v1.id] = v1
+        fake_db.store[v2.id] = v2
+
+        resp = await client.get("/api/videos?review_status=never_viewed")
+        body = resp.json()
+        assert body["total"] == 1
+        assert body["items"][0]["title"] == "Never Viewed"
+
+
+class TestDashboard:
+    @pytest.mark.asyncio
+    async def test_get_dashboard_stats(self, client, fake_db):
+        v1 = make_video(title="Video 1", category="technology", view_count=0)
+        v2 = make_video(title="Video 2", category="technology", view_count=3)
+        v3 = make_video(title="Video 3", category="science", view_count=0)
+        fake_db.store[v1.id] = v1
+        fake_db.store[v2.id] = v2
+        fake_db.store[v3.id] = v3
+
+        resp = await client.get("/api/stats/dashboard")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total_videos"] == 3
+        assert body["never_viewed_count"] == 2
+        assert "technology" in body["videos_by_category"]
+        assert body["videos_by_category"]["technology"] == 2
+        assert len(body["top_tags"]) > 0

@@ -1,14 +1,16 @@
 import asyncio
 import uuid
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.logging_config import get_logger
 from app.models import Category, Video, VideoJob
 from app.schemas import (
+    PaginatedVideosResponse,
     VideoCreate,
     VideoJobResponse,
     VideoListResponse,
@@ -99,10 +101,87 @@ async def get_video_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     return job
 
 
-@router.get("", response_model=list[VideoListResponse])
-async def list_videos(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Video).order_by(Video.created_at.desc()))
-    return result.scalars().all()
+@router.get("", response_model=PaginatedVideosResponse)
+async def list_videos(
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    sort_by: str = Query(default="created_at"),
+    sort_order: str = Query(default="desc"),
+    search: str | None = Query(default=None),
+    tag: str | None = Query(default=None),
+    tag_mode: str = Query(default="any"),
+    category: str | None = Query(default=None),
+    collection_id: str | None = Query(default=None),
+    review_status: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    allowed_sort = {"created_at", "title", "channel_name", "duration", "last_viewed_at", "view_count"}
+    sort_column = getattr(Video, sort_by if sort_by in allowed_sort else "created_at")
+    order_expr = sort_column.desc() if sort_order == "desc" else sort_column.asc()
+
+    query = select(Video)
+
+    if search:
+        pattern = f"%{search.strip()}%"
+        query = query.where(
+            or_(
+                Video.title.ilike(pattern),
+                Video.channel_name.ilike(pattern),
+                Video.explanation.ilike(pattern),
+                Video.key_knowledge.ilike(pattern),
+                func.array_to_string(Video.keywords, " ").ilike(pattern),
+            )
+        )
+
+    if tag:
+        tags = [token.strip().lower() for token in tag.split(",") if token.strip()]
+        if tags:
+            keyword_text = func.lower(func.array_to_string(Video.keywords, " "))
+            if tag_mode == "all":
+                query = query.where(
+                    and_(*[keyword_text.contains(item) for item in tags])
+                )
+            else:
+                query = query.where(
+                    or_(*[keyword_text.contains(item) for item in tags])
+                )
+
+    if category:
+        query = query.where(Video.category == category)
+
+    if collection_id:
+        from app.models import collection_videos
+
+        query = query.join(collection_videos).where(
+            collection_videos.c.collection_id == collection_id
+        )
+
+    if review_status == "never_viewed":
+        query = query.where(Video.view_count == 0)
+    elif review_status == "stale":
+        stale_threshold = datetime.now() - timedelta(days=14)
+        query = query.where(
+            or_(Video.last_viewed_at == None, Video.last_viewed_at < stale_threshold)  # noqa: E711
+        )
+    elif review_status == "recent":
+        recent_threshold = datetime.now() - timedelta(days=7)
+        query = query.where(Video.last_viewed_at >= recent_threshold)
+
+    total_result = await db.execute(
+        select(func.count()).select_from(query.order_by(None).subquery())
+    )
+    total = total_result.scalar() or 0
+
+    result = await db.execute(query.order_by(order_expr).limit(limit).offset(offset))
+    items = [
+        VideoListResponse.model_validate(video) for video in result.scalars().all()
+    ]
+    return PaginatedVideosResponse(
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/{video_id}", response_model=VideoResponse)
@@ -112,7 +191,40 @@ async def get_video(video_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Video not found"
         )
+    video.view_count = (video.view_count or 0) + 1
+    video.last_viewed_at = datetime.now()
+    await db.commit()
+    await db.refresh(video)
     return video
+
+
+@router.get("/{video_id}/related", response_model=list[VideoListResponse])
+async def get_related_videos(
+    video_id: str,
+    limit: int = Query(default=5, ge=1, le=20),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Video).where(Video.id == video_id))
+    video = result.scalar_one_or_none()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    if not video.keywords:
+        return []
+
+    all_result = await db.execute(
+        select(Video).where(
+            Video.id != video_id,
+            Video.keywords.overlap(video.keywords),
+        )
+    )
+    candidates = all_result.scalars().all()
+
+    def overlap_count(v):
+        return len(set(v.keywords or []) & set(video.keywords))
+
+    candidates.sort(key=overlap_count, reverse=True)
+    return candidates[:limit]
 
 
 @router.patch("/{video_id}", response_model=VideoResponse)

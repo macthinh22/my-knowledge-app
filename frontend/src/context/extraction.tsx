@@ -65,8 +65,8 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const refreshVideos = useCallback(async () => {
-    const all = await listVideos();
-    setVideos(all);
+    const data = await listVideos({ limit: 100 });
+    setVideos(data.items);
   }, []);
 
   const removeVideo = useCallback((videoId: string) => {
@@ -179,8 +179,8 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
 
     const bootstrap = async () => {
       try {
-        const allVideos = await listVideos();
-        if (isMounted) setVideos(allVideos);
+        const data = await listVideos({ limit: 100 });
+        if (isMounted) setVideos(data.items);
       } catch {
         if (isMounted) setExtractError("Failed to load videos");
       } finally {

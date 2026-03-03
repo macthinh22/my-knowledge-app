@@ -136,9 +136,40 @@ export function listVideoJobs(statuses?: VideoJobStatus[]) {
     return request<VideoJob[]>(`/api/videos/jobs${query}`);
 }
 
-/** List all videos, sorted newest first. */
-export function listVideos() {
-    return request<VideoListItem[]>("/api/videos");
+export interface PaginatedResponse<T> {
+    items: T[];
+    total: number;
+    limit: number;
+    offset: number;
+}
+
+export interface VideoListParams {
+    limit?: number;
+    offset?: number;
+    search?: string;
+    sort_by?: string;
+    sort_order?: "asc" | "desc";
+    tag?: string;
+    tag_mode?: "all" | "any";
+    category?: string;
+    collection_id?: string;
+    review_status?: string;
+}
+
+/** List videos with server-side pagination, search, and filtering. */
+export function listVideos(
+    params: VideoListParams = {},
+): Promise<PaginatedResponse<VideoListItem>> {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null && value !== "") {
+            query.set(key, String(value));
+        }
+    }
+    const qs = query.toString();
+    return request<PaginatedResponse<VideoListItem>>(
+        `/api/videos${qs ? `?${qs}` : ""}`,
+    );
 }
 
 /** Get a single video with full analysis. */
@@ -185,8 +216,85 @@ export function deleteCategory(slug: string) {
     });
 }
 
-export function listTags() {
-    return request<TagSummary[]>("/api/tags");
+export function listTags(params?: {
+    search?: string;
+    limit?: number;
+}): Promise<TagSummary[]> {
+    const query = new URLSearchParams();
+    if (params?.search) query.set("search", params.search);
+    if (params?.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    return request<TagSummary[]>(`/api/tags${qs ? `?${qs}` : ""}`);
+}
+
+export interface CollectionItem {
+    id: string;
+    name: string;
+    description: string | null;
+    video_count: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export function listCollections(): Promise<CollectionItem[]> {
+    return request<CollectionItem[]>("/api/collections");
+}
+
+export function createCollection(
+    name: string,
+    description?: string,
+): Promise<CollectionItem> {
+    return request<CollectionItem>("/api/collections", {
+        method: "POST",
+        body: JSON.stringify({ name, description }),
+    });
+}
+
+export function deleteCollection(id: string): Promise<void> {
+    return request<void>(`/api/collections/${id}`, { method: "DELETE" });
+}
+
+export function addVideoToCollection(
+    collectionId: string,
+    videoId: string,
+): Promise<void> {
+    return request<void>(`/api/collections/${collectionId}/videos`, {
+        method: "POST",
+        body: JSON.stringify({ video_id: videoId }),
+    });
+}
+
+export function removeVideoFromCollection(
+    collectionId: string,
+    videoId: string,
+): Promise<void> {
+    return request<void>(
+        `/api/collections/${collectionId}/videos/${videoId}`,
+        { method: "DELETE" },
+    );
+}
+
+export function getRelatedVideos(
+    videoId: string,
+    limit = 5,
+): Promise<VideoListItem[]> {
+    return request<VideoListItem[]>(
+        `/api/videos/${videoId}/related?limit=${limit}`,
+    );
+}
+
+export interface DashboardStats {
+    total_videos: number;
+    total_collections: number;
+    never_viewed_count: number;
+    stale_count: number;
+    videos_by_category: Record<string, number>;
+    top_tags: TagSummary[];
+    recent_additions: number;
+}
+
+export function getDashboard(): Promise<DashboardStats> {
+    return request<DashboardStats>("/api/stats/dashboard");
 }
 
 export function listTagAliases() {

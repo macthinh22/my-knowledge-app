@@ -15,12 +15,14 @@ import { DeleteButton } from "@/components/DeleteButton";
 import {
   getVideo,
   getVideoJob,
+  getRelatedVideos,
   listCategories,
   updateVideoCategory,
   isApiRequestError,
   type Category,
   type Video,
   type VideoJob,
+  type VideoListItem,
 } from "@/lib/api";
 import { categoryLabel, getCategoryBadgeClass } from "@/lib/categories";
 import { formatDuration } from "@/lib/format";
@@ -48,6 +50,7 @@ export default function VideoPage({
   const [savingCategory, setSavingCategory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [relatedVideos, setRelatedVideos] = useState<VideoListItem[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,6 +159,11 @@ export default function VideoPage({
       cancelled = true;
     };
   }, [id, router, syncVideoInLibrary]);
+
+  useEffect(() => {
+    if (!video) return;
+    getRelatedVideos(video.id).then(setRelatedVideos).catch(() => setRelatedVideos([]));
+  }, [video]);
 
   useEffect(() => {
     if (!job || !ACTIVE_JOB_STATUSES.has(job.status)) {
@@ -415,6 +423,37 @@ export default function VideoPage({
           <VideoDetail video={video} />
         </div>
       </div>
+
+      {relatedVideos.length > 0 && (
+        <div className="border-t px-6 py-6">
+          <h2 className="text-lg font-semibold mb-4">Related Videos</h2>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {relatedVideos.map((rv) => (
+              <Link
+                key={rv.id}
+                href={`/video/${rv.id}`}
+                className="shrink-0 w-56 group"
+              >
+                {rv.thumbnail_url ? (
+                  <img
+                    src={rv.thumbnail_url}
+                    alt={rv.title ?? ""}
+                    className="w-full aspect-video rounded-md object-cover"
+                  />
+                ) : (
+                  <div className="w-full aspect-video rounded-md bg-muted" />
+                )}
+                <p className="mt-2 text-sm font-medium line-clamp-2 group-hover:underline">
+                  {rv.title}
+                </p>
+                {rv.channel_name && (
+                  <p className="text-xs text-muted-foreground">{rv.channel_name}</p>
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

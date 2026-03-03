@@ -39,6 +39,8 @@ class VideoResponse(BaseModel):
     transcript_source: str | None = None
     created_at: datetime
     updated_at: datetime
+    last_viewed_at: datetime | None = None
+    view_count: int = 0
 
 
 class VideoListResponse(BaseModel):
@@ -60,6 +62,15 @@ class VideoListResponse(BaseModel):
     transcript_source: str | None = None
     created_at: datetime
     updated_at: datetime
+    last_viewed_at: datetime | None = None
+    view_count: int = 0
+
+
+class PaginatedVideosResponse(BaseModel):
+    items: list[VideoListResponse]
+    total: int
+    limit: int
+    offset: int
 
 
 class VideoJobResponse(BaseModel):
@@ -122,3 +133,42 @@ class TagRenameRequest(BaseModel):
 class TagMergeRequest(BaseModel):
     source_tags: list[str]
     target_tag: str
+
+
+class CollectionCreate(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class CollectionUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class CollectionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    description: str | None
+    video_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class CollectionDetailResponse(CollectionResponse):
+    video_ids: list[uuid.UUID]
+
+
+class AddVideoToCollectionRequest(BaseModel):
+    video_id: uuid.UUID
+
+
+class DashboardStats(BaseModel):
+    total_videos: int
+    total_collections: int
+    never_viewed_count: int
+    stale_count: int
+    videos_by_category: dict[str, int]
+    top_tags: list[TagSummaryResponse]
+    recent_additions: int

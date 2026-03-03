@@ -1,15 +1,14 @@
 """Shared test fixtures."""
 
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import MagicMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.database import get_db
-from app.models import Category, TagAlias, Video, VideoJob
-
+from app.models import Category, Collection, TagAlias, Video, VideoJob
 
 # ---------------------------------------------------------------------------
 # Fake video data
@@ -33,8 +32,10 @@ def make_video(**overrides) -> Video:
         keywords=["test", "python"],
         notes=None,
         transcript_source="captions",
-        created_at=datetime(2026, 1, 15, tzinfo=timezone.utc),
-        updated_at=datetime(2026, 1, 15, tzinfo=timezone.utc),
+        created_at=datetime(2026, 1, 15, tzinfo=UTC),
+        updated_at=datetime(2026, 1, 15, tzinfo=UTC),
+        view_count=0,
+        last_viewed_at=None,
     )
     defaults.update(overrides)
     return Video(**defaults)
@@ -53,6 +54,8 @@ class FakeDB:
         self.job_store: dict[uuid.UUID, VideoJob] = {}
         self.alias_store: dict[uuid.UUID, TagAlias] = {}
         self.category_store: dict[uuid.UUID, Category] = {}
+        self.collection_store: dict[uuid.UUID, Collection] = {}
+        self.collection_videos: dict[uuid.UUID, list[uuid.UUID]] = {}
 
     async def get(self, model, pk):
         if model is VideoJob:
@@ -61,6 +64,8 @@ class FakeDB:
             return self.alias_store.get(pk)
         if model is Category:
             return self.category_store.get(pk)
+        if model is Collection:
+            return self.collection_store.get(pk)
         return self.store.get(pk)
 
     async def execute(self, stmt):
@@ -118,6 +123,36 @@ class FakeDB:
             result.scalar_one_or_none.return_value = aliases[0] if aliases else None
             return result
 
+        if "count(" in sql.lower() and "FROM collections" in sql:
+            result.scalar.return_value = len(self.collection_store)
+            return result
+
+        if "FROM collections" in sql:
+            collections = sorted(
+                self.collection_store.values(), key=lambda c: c.name
+            )
+            col_id = params.get("id_1")
+            if col_id is not None:
+                collections = [c for c in collections if str(c.id) == str(col_id)]
+            for c in collections:
+                video_ids = self.collection_videos.get(c.id, [])
+                c.videos = [self.store[vid] for vid in video_ids if vid in self.store]
+            if "count(" in sql.lower():
+                count = 0
+                if col_id:
+                    parsed = uuid.UUID(str(col_id)) if not isinstance(col_id, uuid.UUID) else col_id
+                    count = len(self.collection_videos.get(parsed, []))
+                result.scalar.return_value = count
+                return result
+            result.scalars.return_value.all.return_value = collections
+            result.scalars.return_value.first.return_value = (
+                collections[0] if collections else None
+            )
+            result.scalar_one_or_none.return_value = (
+                collections[0] if collections else None
+            )
+            return result
+
         if "FROM categories" in sql:
             categories = sorted(self.category_store.values(), key=lambda c: c.slug)
             slug = params.get("slug_1")
@@ -133,14 +168,81 @@ class FakeDB:
             )
             return result
 
-        videos = sorted(self.store.values(), key=lambda v: v.created_at, reverse=True)
-        youtube_id = params.get("youtube_id_1")
-        if youtube_id is not None:
-            videos = [v for v in videos if v.youtube_id == youtube_id]
+        videos = list(self.store.values())
+
+        search_pattern = next(
+            (
+                value
+                for key, value in params.items()
+                if key
+                in {"title_1", "channel_name_1", "explanation_1", "key_knowledge_1"}
+                and isinstance(value, str)
+            ),
+            None,
+        )
+        if isinstance(search_pattern, str):
+            term = search_pattern.replace("%", "").strip().lower()
+            if term:
+                videos = [
+                    video
+                    for video in videos
+                    if term in (video.title or "").lower()
+                    or term in (video.channel_name or "").lower()
+                    or term in (video.explanation or "").lower()
+                    or term in (video.key_knowledge or "").lower()
+                    or term in " ".join(video.keywords or []).lower()
+                ]
 
         category = params.get("category_1")
         if category is not None:
             videos = [v for v in videos if v.category == category]
+
+        view_count = params.get("view_count_1")
+        if view_count is not None:
+            videos = [v for v in videos if (v.view_count or 0) == view_count]
+
+        if "count(" in sql.lower() and ("from videos" in sql.lower() or "FROM videos" in sql):
+            result.scalar.return_value = len(videos)
+            return result
+
+        order_key = "created_at"
+        if "videos.title" in sql:
+            order_key = "title"
+        elif "videos.channel_name" in sql:
+            order_key = "channel_name"
+        elif "videos.duration" in sql:
+            order_key = "duration"
+
+        reverse = " desc" in sql.lower()
+        if order_key == "duration":
+            videos = sorted(
+                videos,
+                key=lambda v: (
+                    getattr(v, order_key) is None,
+                    getattr(v, order_key) or 0,
+                ),
+                reverse=reverse,
+            )
+        else:
+            videos = sorted(
+                videos,
+                key=lambda v: (
+                    getattr(v, order_key) is None,
+                    str(getattr(v, order_key) or ""),
+                ),
+                reverse=reverse,
+            )
+
+        youtube_id = params.get("youtube_id_1")
+        if youtube_id is not None:
+            videos = [v for v in videos if v.youtube_id == youtube_id]
+
+        limit = params.get("param_1")
+        offset = params.get("param_2")
+        if isinstance(offset, int):
+            videos = videos[offset:]
+        if isinstance(limit, int):
+            videos = videos[:limit]
 
         result.scalars.return_value.all.return_value = videos
         result.scalars.return_value.first.return_value = videos[0] if videos else None
@@ -159,6 +261,12 @@ class FakeDB:
         if isinstance(obj, Category):
             self.category_store[obj.id] = obj
             return
+        if isinstance(obj, Collection):
+            self.collection_store[obj.id] = obj
+            if not hasattr(obj, "videos") or obj.videos is None:
+                obj.videos = []
+            self.collection_videos.setdefault(obj.id, [])
+            return
         self.store[obj.id] = obj
 
     async def flush(self):
@@ -166,7 +274,7 @@ class FakeDB:
 
     async def refresh(self, obj):
         # Simulate setting server defaults
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if not hasattr(obj, "created_at") or obj.created_at is None:
             object.__setattr__(obj, "created_at", now)
         if not hasattr(obj, "updated_at") or obj.updated_at is None:
@@ -182,10 +290,16 @@ class FakeDB:
         if isinstance(obj, Category):
             self.category_store.pop(obj.id, None)
             return
+        if isinstance(obj, Collection):
+            self.collection_store.pop(obj.id, None)
+            self.collection_videos.pop(obj.id, None)
+            return
         self.store.pop(obj.id, None)
 
     async def commit(self):
-        pass
+        for col in self.collection_store.values():
+            if hasattr(col, "videos") and isinstance(col.videos, list):
+                self.collection_videos[col.id] = [v.id for v in col.videos]
 
     async def rollback(self):
         pass

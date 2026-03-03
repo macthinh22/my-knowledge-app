@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Search, X, BookOpen, SlidersHorizontal, Check } from "lucide-react";
+import { Search, X, BookOpen, SlidersHorizontal, Check, ArrowUpDown, BarChart3 } from "lucide-react";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,10 +21,24 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+export type SortOption = `${"created_at" | "title" | "duration" | "channel_name"}_${"asc" | "desc"}`;
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "created_at_desc", label: "Newest first" },
+  { value: "created_at_asc", label: "Oldest first" },
+  { value: "title_asc", label: "Title A-Z" },
+  { value: "title_desc", label: "Title Z-A" },
+  { value: "duration_desc", label: "Duration: longest" },
+  { value: "duration_asc", label: "Duration: shortest" },
+  { value: "channel_name_asc", label: "Channel A-Z" },
+];
+
 interface ToolbarProps {
   onSearchChange: (query: string) => void;
   view: "grid" | "list";
   onViewChange: (view: "grid" | "list") => void;
+  sortOption?: SortOption;
+  onSortChange?: (option: SortOption) => void;
   availableTags?: TagSummary[];
   availableCategories?: Category[];
   categoryVideoCounts?: Record<string, number>;
@@ -33,6 +48,8 @@ interface ToolbarProps {
   onCategoryChange?: (category: string | null) => void;
   keywordFilterMode?: "all" | "any";
   onKeywordFilterModeChange?: (mode: "all" | "any") => void;
+  reviewStatus?: string | null;
+  onReviewStatusChange?: (status: string | null) => void;
   onTagDataChanged?: () => Promise<void> | void;
   onCategoryDataChanged?: (deletedSlug?: string) => Promise<void> | void;
 }
@@ -41,6 +58,8 @@ export function Toolbar({
   onSearchChange,
   view,
   onViewChange,
+  sortOption = "created_at_desc",
+  onSortChange,
   availableTags = [],
   availableCategories = [],
   categoryVideoCounts = {},
@@ -50,6 +69,8 @@ export function Toolbar({
   onCategoryChange,
   keywordFilterMode = "all",
   onKeywordFilterModeChange,
+  reviewStatus = null,
+  onReviewStatusChange,
   onTagDataChanged,
   onCategoryDataChanged,
 }: ToolbarProps) {
@@ -117,6 +138,20 @@ export function Toolbar({
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="relative">
+            <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={sortOption}
+              onChange={(e) => onSortChange?.(e.target.value as SortOption)}
+              className="h-9 appearance-none rounded-md border bg-background pl-8 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
@@ -245,6 +280,11 @@ export function Toolbar({
             </DialogContent>
           </Dialog>
           <ViewToggle view={view} onViewChange={onViewChange} />
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/dashboard">
+              <BarChart3 className="h-4 w-4" />
+            </Link>
+          </Button>
           <ThemeToggle />
         </div>
       </div>
@@ -271,6 +311,25 @@ export function Toolbar({
           categories={availableCategories}
           onChanged={(deletedSlug) => onCategoryDataChanged?.(deletedSlug)}
         />
+
+        <div className="ml-auto flex items-center gap-1.5 border-l pl-3">
+          {[
+            { value: null, label: "All" },
+            { value: "never_viewed", label: "Never viewed" },
+            { value: "stale", label: "Needs review" },
+            { value: "recent", label: "Recently viewed" },
+          ].map((opt) => (
+            <Button
+              key={opt.value ?? "all"}
+              size="sm"
+              variant={reviewStatus === opt.value ? "secondary" : "ghost"}
+              className="h-7 text-xs"
+              onClick={() => onReviewStatusChange?.(opt.value)}
+            >
+              {opt.label}
+            </Button>
+          ))}
+        </div>
       </div>
     </header>
   );
