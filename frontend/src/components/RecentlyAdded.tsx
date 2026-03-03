@@ -78,7 +78,7 @@ export function RecentlyAdded({
   }
 
   return (
-    <section className="mb-8">
+    <section className="mb-8 rounded-xl border border-border/60 bg-muted/20 p-4">
       <h2 className="mb-4 text-lg font-semibold">Recently Added</h2>
 
       {loading ? (
