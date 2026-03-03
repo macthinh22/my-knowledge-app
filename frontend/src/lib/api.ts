@@ -67,6 +67,8 @@ export interface Category {
     id: string;
     slug: string;
     name: string;
+    color: string | null;
+    display_order: number;
     created_at: string;
 }
 
@@ -203,10 +205,20 @@ export function listCategories() {
     return request<Category[]>("/api/categories");
 }
 
-export function createCategory(slug: string, name: string) {
+export function createCategory(slug: string, name: string, color?: string) {
     return request<Category>("/api/categories", {
         method: "POST",
-        body: JSON.stringify({ slug, name }),
+        body: JSON.stringify({ slug, name, color }),
+    });
+}
+
+export function updateCategory(
+    slug: string,
+    data: { name?: string; color?: string; display_order?: number },
+) {
+    return request<Category>(`/api/categories/${encodeURIComponent(slug)}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
     });
 }
 
