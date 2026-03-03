@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Toolbar } from "@/components/Toolbar";
 import { PendingVideoCard } from "@/components/PendingVideoCard";
+import { RecentlyAdded } from "@/components/RecentlyAdded";
 import { VideoCard } from "@/components/VideoCard";
 import { VideoListItem as VideoListItemComponent } from "@/components/VideoListItem";
 import { useExtraction } from "@/context/extraction";
@@ -126,6 +127,11 @@ export default function HomePage() {
   );
 
   const visibleTotal = total - (videos.length - filtered.length);
+  const hasActiveLibraryFilters = Boolean(search.trim())
+    || selectedKeywords.length > 0
+    || selectedCategory !== null
+    || selectedCollection !== null
+    || reviewStatus !== null;
 
   useEffect(() => {
     listCategories().then(setCategories).catch(() => setCategories([]));
@@ -339,6 +345,19 @@ export default function HomePage() {
             </Link>
           </Button>
         </div>
+
+        {!hasActiveLibraryFilters && (
+          <RecentlyAdded
+            refreshKey={deletedVideoIds.size}
+            categoryNameMap={categoryNameMap}
+            categories={categories}
+            collections={collections}
+            selectedCollectionMap={videoCollectionMap}
+            onCategoryChange={handleVideoCategoryChange}
+            onCollectionToggle={handleVideoCollectionToggle}
+            onDelete={(video) => setVideoPendingDelete(video)}
+          />
+        )}
 
         {loading && (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
