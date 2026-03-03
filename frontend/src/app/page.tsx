@@ -5,12 +5,33 @@ import Link from "next/link";
 import { Plus, VideoOff, SearchX, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Toolbar } from "@/components/Toolbar";
 import { PendingVideoCard } from "@/components/PendingVideoCard";
 import { VideoCard } from "@/components/VideoCard";
 import { VideoListItem as VideoListItemComponent } from "@/components/VideoListItem";
 import { useExtraction } from "@/context/extraction";
-import { listCategories, listTags, type Category, type TagSummary } from "@/lib/api";
+import {
+  addVideoToCollection,
+  deleteVideo,
+  getCollection,
+  listCategories,
+  listCollections,
+  listTags,
+  removeVideoFromCollection,
+  updateVideoCategory,
+  type Category,
+  type CollectionItem,
+  type TagSummary,
+  type VideoListItem,
+} from "@/lib/api";
 import { usePaginatedVideos } from "@/hooks/usePaginatedVideos";
 import { CollectionsSidebar } from "@/components/CollectionsSidebar";
 import type { SortOption } from "@/components/Toolbar";
@@ -65,9 +86,15 @@ export default function HomePage() {
   const [sortOption, setSortOption] = useState<SortOption>("created_at_desc");
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const [reviewStatus, setReviewStatus] = useState<string | null>(null);
+  const [collections, setCollections] = useState<CollectionItem[]>([]);
+  const [videoCollectionMap, setVideoCollectionMap] = useState<Record<string, Set<string>>>({});
+  const [categoryOverrides, setCategoryOverrides] = useState<Record<string, string | null>>({});
+  const [deletedVideoIds, setDeletedVideoIds] = useState<Set<string>>(new Set());
+  const [videoPendingDelete, setVideoPendingDelete] = useState<VideoListItem | null>(null);
+  const [deletingVideo, setDeletingVideo] = useState(false);
 
   const {
-    videos: filtered,
+    videos,
     total,
     loading,
     loadingMore,
@@ -85,6 +112,21 @@ export default function HomePage() {
     review_status: reviewStatus || undefined,
   });
 
+  const filtered = useMemo(
+    () => videos
+      .filter((video) => !deletedVideoIds.has(video.id))
+      .map((video) => {
+        if (!(video.id in categoryOverrides)) return video;
+        return {
+          ...video,
+          category: categoryOverrides[video.id],
+        };
+      }),
+    [videos, deletedVideoIds, categoryOverrides],
+  );
+
+  const visibleTotal = total - (videos.length - filtered.length);
+
   useEffect(() => {
     listCategories().then(setCategories).catch(() => setCategories([]));
   }, []);
@@ -92,6 +134,38 @@ export default function HomePage() {
   useEffect(() => {
     listTags({ limit: 200 }).then(setAllKeywords).catch(() => setAllKeywords([]));
   }, []);
+
+  const refreshCollectionsAndMembership = useCallback(async () => {
+    try {
+      const nextCollections = await listCollections();
+      setCollections(nextCollections);
+
+      const collectionDetails = await Promise.all(
+        nextCollections.map((collection) => getCollection(collection.id).catch(() => null)),
+      );
+
+      const nextMembership: Record<string, Set<string>> = {};
+      collectionDetails.forEach((detail, index) => {
+        if (!detail) return;
+        const collectionId = nextCollections[index]?.id;
+        if (!collectionId) return;
+        detail.video_ids.forEach((videoId) => {
+          if (!nextMembership[videoId]) {
+            nextMembership[videoId] = new Set();
+          }
+          nextMembership[videoId].add(collectionId);
+        });
+      });
+      setVideoCollectionMap(nextMembership);
+    } catch {
+      setCollections([]);
+      setVideoCollectionMap({});
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshCollectionsAndMembership();
+  }, [refreshCollectionsAndMembership]);
 
   const refreshTags = useCallback(() => {
     listTags({ limit: 200 }).then(setAllKeywords).catch(() => setAllKeywords([]));
@@ -134,6 +208,88 @@ export default function HomePage() {
     [categories, refreshVideos],
   );
 
+  const handleVideoCategoryChange = useCallback(
+    async (videoId: string, category: string | null) => {
+      await updateVideoCategory(videoId, category);
+      setCategoryOverrides((prev) => ({
+        ...prev,
+        [videoId]: category,
+      }));
+    },
+    [],
+  );
+
+  const handleVideoCollectionToggle = useCallback(
+    async (videoId: string, collectionId: string, checked: boolean) => {
+      if (checked) {
+        await addVideoToCollection(collectionId, videoId);
+      } else {
+        await removeVideoFromCollection(collectionId, videoId);
+      }
+
+      setVideoCollectionMap((prev) => {
+        const next = { ...prev };
+        const videoCollectionIds = new Set(next[videoId] ?? []);
+
+        if (checked) {
+          videoCollectionIds.add(collectionId);
+        } else {
+          videoCollectionIds.delete(collectionId);
+        }
+
+        if (videoCollectionIds.size === 0) {
+          delete next[videoId];
+        } else {
+          next[videoId] = videoCollectionIds;
+        }
+
+        return next;
+      });
+    },
+    [],
+  );
+
+  const handleDeleteVideoConfirm = useCallback(async () => {
+    if (!videoPendingDelete) return;
+
+    setDeletingVideo(true);
+    try {
+      await deleteVideo(videoPendingDelete.id);
+
+      setDeletedVideoIds((prev) => {
+        const next = new Set(prev);
+        next.add(videoPendingDelete.id);
+        return next;
+      });
+
+      setCategoryOverrides((prev) => {
+        if (!(videoPendingDelete.id in prev)) return prev;
+        const next = { ...prev };
+        delete next[videoPendingDelete.id];
+        return next;
+      });
+
+      setVideoCollectionMap((prev) => {
+        if (!prev[videoPendingDelete.id]) return prev;
+        const next = { ...prev };
+        delete next[videoPendingDelete.id];
+        return next;
+      });
+
+      setVideoPendingDelete(null);
+      refreshVideos();
+      void refreshCollectionsAndMembership();
+    } finally {
+      setDeletingVideo(false);
+    }
+  }, [videoPendingDelete, refreshVideos, refreshCollectionsAndMembership]);
+
+  const closeDeleteDialog = useCallback((open: boolean) => {
+    if (!open && !deletingVideo) {
+      setVideoPendingDelete(null);
+    }
+  }, [deletingVideo]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Toolbar
@@ -161,16 +317,17 @@ export default function HomePage() {
         <CollectionsSidebar
           selectedCollection={selectedCollection}
           onCollectionChange={setSelectedCollection}
+          onCollectionsChanged={refreshCollectionsAndMembership}
         />
       <main className="flex-1 px-6 py-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold">
-              {total > 0
-                ? `Showing ${filtered.length} of ${total} videos`
-                : loading
-                  ? ""
-                  : "No videos found"}
+              <h1 className="text-lg font-semibold">
+               {visibleTotal > 0
+                 ? `Showing ${filtered.length} of ${visibleTotal} videos`
+                 : loading
+                   ? ""
+                   : "No videos found"}
             </h1>
             {error && <p className="text-sm text-destructive">{error}</p>}
             {info && <p className="text-sm text-muted-foreground">{info}</p>}
@@ -231,6 +388,14 @@ export default function HomePage() {
                 key={video.id}
                 video={video}
                 categoryNameMap={categoryNameMap}
+                categories={categories}
+                collections={collections}
+                selectedCollectionIds={videoCollectionMap[video.id] ?? new Set()}
+                onCategoryChange={(category) => handleVideoCategoryChange(video.id, category)}
+                onCollectionToggle={(collectionId, checked) => (
+                  handleVideoCollectionToggle(video.id, collectionId, checked)
+                )}
+                onDelete={() => setVideoPendingDelete(video)}
               />
             ))}
           </div>
@@ -244,6 +409,14 @@ export default function HomePage() {
                 key={video.id}
                 video={video}
                 categoryNameMap={categoryNameMap}
+                categories={categories}
+                collections={collections}
+                selectedCollectionIds={videoCollectionMap[video.id] ?? new Set()}
+                onCategoryChange={(category) => handleVideoCategoryChange(video.id, category)}
+                onCollectionToggle={(collectionId, checked) => (
+                  handleVideoCollectionToggle(video.id, collectionId, checked)
+                )}
+                onDelete={() => setVideoPendingDelete(video)}
               />
             ))}
           </div>
@@ -258,6 +431,43 @@ export default function HomePage() {
         )}
       </main>
       </div>
+
+      <Dialog
+        open={videoPendingDelete !== null}
+        onOpenChange={closeDeleteDialog}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete video?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete &ldquo;{videoPendingDelete?.title ?? "Untitled"}&rdquo; and all associated notes and analysis. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setVideoPendingDelete(null)}
+              disabled={deletingVideo}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteVideoConfirm}
+              disabled={deletingVideo || !videoPendingDelete}
+            >
+              {deletingVideo ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

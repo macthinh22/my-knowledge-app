@@ -236,8 +236,16 @@ export interface CollectionItem {
     updated_at: string;
 }
 
+export interface CollectionDetail extends CollectionItem {
+    video_ids: string[];
+}
+
 export function listCollections(): Promise<CollectionItem[]> {
     return request<CollectionItem[]>("/api/collections");
+}
+
+export function getCollection(id: string): Promise<CollectionDetail> {
+    return request<CollectionDetail>(`/api/collections/${id}`);
 }
 
 export function createCollection(

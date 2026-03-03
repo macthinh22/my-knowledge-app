@@ -15,11 +15,13 @@ import {
 interface CollectionsSidebarProps {
   selectedCollection: string | null;
   onCollectionChange: (id: string | null) => void;
+  onCollectionsChanged?: () => void;
 }
 
 export function CollectionsSidebar({
   selectedCollection,
   onCollectionChange,
+  onCollectionsChanged,
 }: CollectionsSidebarProps) {
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -42,6 +44,7 @@ export function CollectionsSidebar({
       setNewName("");
       setShowCreate(false);
       refresh();
+      onCollectionsChanged?.();
     } catch {
       // ignore
     } finally {
@@ -54,6 +57,7 @@ export function CollectionsSidebar({
       await deleteCollection(id);
       if (selectedCollection === id) onCollectionChange(null);
       refresh();
+      onCollectionsChanged?.();
     } catch {
       // ignore
     }
