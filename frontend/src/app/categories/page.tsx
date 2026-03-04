@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ArrowUp,
   Check,
+  Plus,
   Pencil,
   Trash2,
   X,
@@ -37,6 +38,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
 const COLOR_DOT_CLASS: Record<string, string> = {
@@ -134,6 +144,7 @@ export default function CategoriesPage() {
 
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState("slate");
+  const [addOpen, setAddOpen] = useState(false);
 
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
@@ -232,6 +243,7 @@ export default function CategoriesPage() {
       await createCategory(slug, trimmedName, newColor);
       setNewName("");
       setNewColor("slate");
+      setAddOpen(false);
       await refreshData();
     } catch (createError) {
       setError(formatApiError(createError, "Failed to create category"));
@@ -362,6 +374,78 @@ export default function CategoriesPage() {
             {error}
           </p>
         )}
+
+        <section className="flex justify-end">
+          <Dialog
+            open={addOpen}
+            onOpenChange={(open) => {
+              if (busy) {
+                return;
+              }
+              setAddOpen(open);
+              setError("");
+              if (!open) {
+                setNewName("");
+                setNewColor("slate");
+              }
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Category
+              </Button>
+            </DialogTrigger>
+
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Add Category</DialogTitle>
+                <DialogDescription>
+                  Create a new category with a name and color.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Name
+                  </label>
+                  <Input
+                    value={newName}
+                    onChange={(event) => setNewName(event.target.value)}
+                    placeholder="e.g. Product Design"
+                    disabled={busy}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Slug preview: {generatedSlug || "-"}
+                </p>
+                <div>
+                  <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                    Color
+                  </label>
+                  <ColorPicker selected={newColor} onSelect={setNewColor} />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setAddOpen(false)}
+                  disabled={busy}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => void handleCreate()}
+                  disabled={busy || !newName.trim()}
+                >
+                  Add
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </section>
 
         <section className="overflow-x-auto rounded-lg border">
           <table className="w-full min-w-[760px] text-sm">
@@ -498,42 +582,6 @@ export default function CategoriesPage() {
           </table>
         </section>
 
-        <section className="rounded-lg border p-4 sm:p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Add Category
-          </h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Name
-                </label>
-                <Input
-                  value={newName}
-                  onChange={(event) => setNewName(event.target.value)}
-                  placeholder="e.g. Product Design"
-                  disabled={busy}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Slug preview: {generatedSlug || "-"}
-              </p>
-              <div>
-                <label className="mb-2 block text-xs font-medium text-muted-foreground">
-                  Color
-                </label>
-                <ColorPicker selected={newColor} onSelect={setNewColor} />
-              </div>
-            </div>
-
-            <Button
-              onClick={() => void handleCreate()}
-              disabled={busy || !newName.trim()}
-            >
-              Add
-            </Button>
-          </div>
-        </section>
       </main>
 
       <AlertDialog
