@@ -309,7 +309,7 @@ export default function HomePage() {
           onCollectionChange={setSelectedCollection}
           onCollectionsChanged={refreshCollectionsAndMembership}
         />
-      <main className="flex-1 px-6 py-6">
+      <main className="min-w-0 flex-1 px-6 py-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
               <h1 className="text-lg font-semibold">
@@ -341,6 +341,10 @@ export default function HomePage() {
             onCollectionToggle={handleVideoCollectionToggle}
             onDelete={(video) => setVideoPendingDelete(video)}
           />
+        )}
+
+        {!hasActiveLibraryFilters && (
+          <h2 className="mb-4 text-lg font-semibold">All Videos</h2>
         )}
 
         {loading && (
