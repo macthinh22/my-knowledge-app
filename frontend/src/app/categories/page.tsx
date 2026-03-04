@@ -6,11 +6,9 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
-  Check,
   Plus,
   Pencil,
   Trash2,
-  X,
 } from "lucide-react";
 import {
   createCategory,
@@ -23,7 +21,6 @@ import {
 } from "@/lib/api";
 import {
   PRESET_COLORS,
-  getCategoryBadgeClass,
   isDefaultCategory,
 } from "@/lib/categories";
 import {
@@ -36,7 +33,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -473,10 +469,9 @@ export default function CategoriesPage() {
                 </tr>
               ) : (
                 orderedCategories.map((category, index) => {
-                  const inEditMode = editingSlug === category.slug;
                   const colorKey = category.color ?? "slate";
                   return (
-                    <tr key={category.id} className="border-t align-top">
+                    <tr key={category.id} className="border-t">
                       <td className="px-4 py-3 align-middle">
                         <div className="flex justify-center">
                           <div
@@ -484,66 +479,25 @@ export default function CategoriesPage() {
                           />
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        {inEditMode ? (
-                          <div className="space-y-3">
-                            <Input
-                              value={editingName}
-                              onChange={(event) => setEditingName(event.target.value)}
-                              disabled={busy}
-                            />
-                            <ColorPicker
-                              selected={editingColor}
-                              onSelect={setEditingColor}
-                            />
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            <p className="font-medium">{category.name}</p>
-                            <Badge
-                              variant="outline"
-                              className={getCategoryBadgeClass(category.color)}
-                            >
-                              {category.color ?? "slate"}
-                            </Badge>
-                          </div>
-                        )}
+                      <td className="px-4 py-3 align-middle text-left">
+                        <p className="font-medium">{category.name}</p>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{category.slug}</td>
+                      <td className="px-4 py-3 align-middle text-left text-muted-foreground">
+                        {category.slug}
+                      </td>
                       <td className="px-4 py-3 text-center align-middle">
                         {videoCounts[category.slug] ?? 0}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap justify-end gap-1">
-                          {inEditMode ? (
-                            <>
-                              <Button
-                                size="icon"
-                                variant="outline"
-                                onClick={() => void handleSaveEdit()}
-                                disabled={busy}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="outline"
-                                onClick={cancelEdit}
-                                disabled={busy}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              onClick={() => startEdit(category)}
-                              disabled={busy}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            onClick={() => startEdit(category)}
+                            disabled={busy}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
 
                           <Button
                             size="icon"
@@ -581,6 +535,60 @@ export default function CategoriesPage() {
             </tbody>
           </table>
         </section>
+
+        <Dialog
+          open={editingSlug !== null}
+          onOpenChange={(open) => {
+            if (!open && !busy) {
+              cancelEdit();
+              setError("");
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Category</DialogTitle>
+              <DialogDescription>
+                Update category name and color.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3">
+              {editingSlug && (
+                <p className="text-xs text-muted-foreground">Slug: {editingSlug}</p>
+              )}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Name
+                </label>
+                <Input
+                  value={editingName}
+                  onChange={(event) => setEditingName(event.target.value)}
+                  placeholder="e.g. Product Design"
+                  disabled={busy}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                  Color
+                </label>
+                <ColorPicker selected={editingColor} onSelect={setEditingColor} />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={cancelEdit} disabled={busy}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void handleSaveEdit()}
+                disabled={busy || !editingName.trim()}
+              >
+                Save
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
       </main>
 
