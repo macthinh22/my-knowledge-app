@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft, Clock, Calendar, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -440,10 +441,13 @@ export default function VideoPage({
                 className="shrink-0 w-56 group"
               >
                 {rv.thumbnail_url ? (
-                  <img
+                  <Image
                     src={rv.thumbnail_url}
                     alt={rv.title ?? ""}
+                    width={224}
+                    height={126}
                     className="w-full aspect-video rounded-md object-cover"
+                    sizes="224px"
                   />
                 ) : (
                   <div className="w-full aspect-video rounded-md bg-muted" />

@@ -298,14 +298,36 @@ export default function CategoriesPage() {
       return;
     }
 
+    const slugToDelete = deleteSlug;
+
     setBusy(true);
     setError("");
     try {
-      await deleteCategory(deleteSlug);
+      try {
+        await deleteCategory(slugToDelete);
+      } catch (deleteError) {
+        if (!(isApiRequestError(deleteError) && deleteError.status === 404)) {
+          throw deleteError;
+        }
+      }
+
       setDeleteSlug(null);
-      if (editingSlug === deleteSlug) {
+      if (editingSlug === slugToDelete) {
         cancelEdit();
       }
+
+      setCategories((current) =>
+        current.filter((category) => category.slug !== slugToDelete)
+      );
+      setVideoCounts((current) => {
+        if (!(slugToDelete in current)) {
+          return current;
+        }
+        const next = { ...current };
+        delete next[slugToDelete];
+        return next;
+      });
+
       await refreshData();
     } catch (deleteError) {
       setError(formatApiError(deleteError, "Failed to delete category"));
@@ -345,10 +367,10 @@ export default function CategoriesPage() {
           <table className="w-full min-w-[760px] text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-4 py-3 text-left">Color</th>
+                <th className="px-4 py-3 text-center">Color</th>
                 <th className="px-4 py-3 text-left">Name</th>
                 <th className="px-4 py-3 text-left">Slug</th>
-                <th className="px-4 py-3 text-left">Videos</th>
+                <th className="px-4 py-3 text-center">Videos</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -371,10 +393,12 @@ export default function CategoriesPage() {
                   const colorKey = category.color ?? "slate";
                   return (
                     <tr key={category.id} className="border-t align-top">
-                      <td className="px-4 py-3">
-                        <div
-                          className={`h-4 w-4 rounded-full ${COLOR_DOT_CLASS[colorKey] ?? COLOR_DOT_CLASS.slate}`}
-                        />
+                      <td className="px-4 py-3 align-middle">
+                        <div className="flex justify-center">
+                          <div
+                            className={`h-4 w-4 rounded-full ${COLOR_DOT_CLASS[colorKey] ?? COLOR_DOT_CLASS.slate}`}
+                          />
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         {inEditMode ? (
@@ -402,7 +426,9 @@ export default function CategoriesPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{category.slug}</td>
-                      <td className="px-4 py-3">{videoCounts[category.slug] ?? 0}</td>
+                      <td className="px-4 py-3 text-center align-middle">
+                        {videoCounts[category.slug] ?? 0}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap justify-end gap-1">
                           {inEditMode ? (
