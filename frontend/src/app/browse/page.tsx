@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowUpDown, Loader2, SearchX } from "lucide-react";
 import { DashboardToolbar } from "@/components/DashboardToolbar";
 import { ResourceListItem } from "@/components/ResourceListItem";
-import type { SortOption } from "@/components/Toolbar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,6 +34,9 @@ import {
   type CollectionItem,
   type VideoListItem,
 } from "@/lib/api";
+
+type SortOption =
+  `${"created_at" | "title" | "duration" | "channel_name"}_${"asc" | "desc"}`;
 
 function BrowsePageContent() {
   const searchParams = useSearchParams();
