@@ -34,8 +34,8 @@ function StatCard({
   const content = (
     <div
       className={cn(
-        "rounded-lg border p-5 transition-colors",
-        href && "hover:bg-accent/50 cursor-pointer",
+        "rounded-2xl border bg-card p-5 shadow-sm transition-all",
+        href && "hover:bg-accent/50 hover:-translate-y-0.5 hover:shadow-md cursor-pointer",
       )}
     >
       <div className="flex items-center justify-between">
@@ -176,7 +176,7 @@ export default function DashboardPage() {
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Category breakdown */}
-          <div className="rounded-lg border p-5">
+          <div className="rounded-2xl border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4">
               Resources by Category
             </h2>
@@ -200,7 +200,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Top tags */}
-          <div className="rounded-lg border p-5">
+          <div className="rounded-2xl border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4">
               Top Tags
             </h2>
@@ -222,14 +222,14 @@ export default function DashboardPage() {
         </div>
 
         {/* Review overview */}
-        <div className="rounded-lg border p-5">
+        <div className="rounded-2xl border bg-card p-5 shadow-sm">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4">
             Review Status
           </h2>
           <div className="grid grid-cols-3 gap-4">
             <Link
               href="/?review_status=never_viewed"
-              className="rounded-md border p-4 text-center hover:bg-accent/50 transition-colors"
+              className="rounded-xl border p-4 text-center hover:bg-accent/50 transition-colors"
             >
               <EyeOff className="mx-auto h-5 w-5 text-amber-500 mb-2" />
               <p className="text-2xl font-bold">{stats.never_viewed_count}</p>
@@ -237,13 +237,13 @@ export default function DashboardPage() {
             </Link>
             <Link
               href="/?review_status=stale"
-              className="rounded-md border p-4 text-center hover:bg-accent/50 transition-colors"
+              className="rounded-xl border p-4 text-center hover:bg-accent/50 transition-colors"
             >
               <Eye className="mx-auto h-5 w-5 text-orange-500 mb-2" />
               <p className="text-2xl font-bold">{stats.stale_count}</p>
               <p className="text-xs text-muted-foreground">Needs review</p>
             </Link>
-            <div className="rounded-md border p-4 text-center">
+            <div className="rounded-xl border p-4 text-center">
               <BookOpen className="mx-auto h-5 w-5 text-green-500 mb-2" />
               <p className="text-2xl font-bold">
                 {stats.total_videos - stats.never_viewed_count}

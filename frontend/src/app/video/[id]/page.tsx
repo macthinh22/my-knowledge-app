@@ -347,7 +347,7 @@ export default function VideoPage({
           <div className="lg:sticky lg:top-6">
             <YouTubeEmbed youtubeId={video.youtube_id} title={video.title ?? "Resource"} />
 
-            <div className="mt-4">
+            <div className="mt-4 rounded-2xl border bg-card p-5 shadow-sm">
               <h1 className="text-xl font-semibold">{video.title ?? "Untitled"}</h1>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                 {video.channel_name && <span>{video.channel_name}</span>}
@@ -431,14 +431,15 @@ export default function VideoPage({
       </div>
 
       {relatedVideos.length > 0 && (
-        <div className="border-t px-6 py-6">
+        <div className="px-6 py-6">
+          <div className="mx-auto max-w-6xl rounded-2xl border bg-card p-6 shadow-sm">
           <h2 className="text-lg font-semibold mb-4">Related Resources</h2>
           <div className="flex gap-4 overflow-x-auto pb-2">
             {relatedVideos.map((rv) => (
               <Link
                 key={rv.id}
                 href={`/video/${rv.id}`}
-                className="shrink-0 w-56 group"
+                className="shrink-0 w-56 group rounded-xl p-2 transition-colors hover:bg-accent/60"
               >
                 {rv.thumbnail_url ? (
                   <Image
@@ -460,6 +461,7 @@ export default function VideoPage({
                 )}
               </Link>
             ))}
+          </div>
           </div>
         </div>
       )}

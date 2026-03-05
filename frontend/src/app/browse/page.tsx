@@ -195,7 +195,7 @@ function BrowsePageContent() {
   return (
     <div className="min-h-screen bg-background">
       <DashboardToolbar />
-      <div className="mx-auto max-w-4xl px-6 py-8">
+      <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 mx-auto max-w-4xl px-6 py-8">
         <Link
           href="/"
           className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -235,12 +235,13 @@ function BrowsePageContent() {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed p-16 text-muted-foreground">
             <SearchX className="h-10 w-10" />
             <p>No items found</p>
           </div>
         ) : (
-          <div className="space-y-0.5">
+          <div className="divide-y rounded-2xl border bg-card shadow-sm">
+          <div>
             {filtered.map((video) => (
               <ResourceListItem
                 key={video.id}
@@ -265,6 +266,7 @@ function BrowsePageContent() {
                 showCategory={showCategory}
               />
             ))}
+          </div>
           </div>
         )}
 

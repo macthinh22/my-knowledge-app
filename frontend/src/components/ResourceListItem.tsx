@@ -42,7 +42,7 @@ export function ResourceListItem({
   const categoryColorMap = buildCategoryColorMap(categories);
 
   return (
-    <div className="group flex items-center gap-2 rounded-lg border border-transparent px-4 py-3 transition-colors hover:bg-accent">
+    <div className="group flex items-center gap-2 rounded-xl border border-transparent px-4 py-3 transition-colors hover:bg-accent/60">
       <Link href={`/video/${video.id}`} className="flex min-w-0 flex-1 items-start gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h3 className="text-sm font-medium leading-snug">{video.title ?? "Untitled"}</h3>

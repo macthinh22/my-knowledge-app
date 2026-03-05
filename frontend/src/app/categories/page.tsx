@@ -443,9 +443,9 @@ export default function CategoriesPage() {
           </Dialog>
         </section>
 
-        <section className="overflow-x-auto rounded-lg border">
+        <section className="overflow-x-auto rounded-2xl border bg-card shadow-sm">
           <table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 text-center">Color</th>
                 <th className="px-4 py-3 text-left">Name</th>

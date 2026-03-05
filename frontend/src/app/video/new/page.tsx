@@ -37,7 +37,7 @@ export default function NewVideoPage() {
       </header>
 
       <main className="flex flex-col items-center justify-center px-6 py-20">
-        <div className="w-full max-w-xl space-y-4">
+        <div className="w-full max-w-xl space-y-4 rounded-2xl border bg-card p-8 shadow-sm">
           <div className="space-y-2 text-center">
             <h1 className="text-2xl font-semibold">Add a URL</h1>
             <p className="text-sm text-muted-foreground">
