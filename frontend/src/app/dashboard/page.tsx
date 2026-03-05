@@ -135,9 +135,14 @@ export default function DashboardPage() {
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <h1 className="text-lg font-semibold">Knowledge Dashboard</h1>
+          <div>
+            <h1 className="text-lg font-semibold">Knowledge Dashboard</h1>
+            <p className="text-xs text-muted-foreground">
+              Analytics and trends across your library
+            </p>
+          </div>
         </div>
-        <Button asChild size="sm">
+        <Button asChild size="sm" variant="outline">
           <Link href="/video/new">
             <Plus className="mr-2 h-4 w-4" />
             Add URL
@@ -163,7 +168,7 @@ export default function DashboardPage() {
             label="Never viewed"
             value={stats.never_viewed_count}
             icon={EyeOff}
-            href="/?review_status=never_viewed"
+            href="/browse?review_status=never_viewed"
             accent="text-amber-500"
           />
           <StatCard
@@ -228,7 +233,7 @@ export default function DashboardPage() {
           </h2>
           <div className="grid grid-cols-3 gap-4">
             <Link
-              href="/?review_status=never_viewed"
+              href="/browse?review_status=never_viewed"
               className="rounded-xl border p-4 text-center hover:bg-accent/50 transition-colors"
             >
               <EyeOff className="mx-auto h-5 w-5 text-amber-500 mb-2" />
@@ -236,7 +241,7 @@ export default function DashboardPage() {
               <p className="text-xs text-muted-foreground">Never viewed</p>
             </Link>
             <Link
-              href="/?review_status=stale"
+              href="/browse?review_status=stale"
               className="rounded-xl border p-4 text-center hover:bg-accent/50 transition-colors"
             >
               <Eye className="mx-auto h-5 w-5 text-orange-500 mb-2" />
