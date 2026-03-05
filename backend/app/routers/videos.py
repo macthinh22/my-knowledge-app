@@ -115,7 +115,14 @@ async def list_videos(
     review_status: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    allowed_sort = {"created_at", "title", "channel_name", "duration", "last_viewed_at", "view_count"}
+    allowed_sort = {
+        "created_at",
+        "title",
+        "channel_name",
+        "duration",
+        "last_viewed_at",
+        "view_count",
+    }
     sort_column = getattr(Video, sort_by if sort_by in allowed_sort else "created_at")
     order_expr = sort_column.desc() if sort_order == "desc" else sort_column.asc()
 
@@ -146,7 +153,9 @@ async def list_videos(
                     or_(*[keyword_text.contains(item) for item in tags])
                 )
 
-    if category:
+    if category == "__uncategorized__":
+        query = query.where(Video.category.is_(None))
+    elif category:
         query = query.where(Video.category == category)
 
     if collection_id:

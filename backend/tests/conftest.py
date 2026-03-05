@@ -128,9 +128,7 @@ class FakeDB:
             return result
 
         if "FROM collections" in sql:
-            collections = sorted(
-                self.collection_store.values(), key=lambda c: c.name
-            )
+            collections = sorted(self.collection_store.values(), key=lambda c: c.name)
             col_id = params.get("id_1")
             if col_id is not None:
                 collections = [c for c in collections if str(c.id) == str(col_id)]
@@ -140,7 +138,11 @@ class FakeDB:
             if "count(" in sql.lower():
                 count = 0
                 if col_id:
-                    parsed = uuid.UUID(str(col_id)) if not isinstance(col_id, uuid.UUID) else col_id
+                    parsed = (
+                        uuid.UUID(str(col_id))
+                        if not isinstance(col_id, uuid.UUID)
+                        else col_id
+                    )
                     count = len(self.collection_videos.get(parsed, []))
                 result.scalar.return_value = count
                 return result
@@ -196,12 +198,16 @@ class FakeDB:
         category = params.get("category_1")
         if category is not None:
             videos = [v for v in videos if v.category == category]
+        elif "videos.category IS NULL" in sql:
+            videos = [v for v in videos if v.category is None]
 
         view_count = params.get("view_count_1")
         if view_count is not None:
             videos = [v for v in videos if (v.view_count or 0) == view_count]
 
-        if "count(" in sql.lower() and ("from videos" in sql.lower() or "FROM videos" in sql):
+        if "count(" in sql.lower() and (
+            "from videos" in sql.lower() or "FROM videos" in sql
+        ):
             result.scalar.return_value = len(videos)
             return result
 

@@ -112,6 +112,20 @@ class TestListVideos:
         assert len(data["items"]) == 1
         assert data["items"][0]["title"] == "Test Video"
 
+    @pytest.mark.asyncio
+    async def test_filter_uncategorized(self, client, fake_db):
+        uncategorized = make_video(title="No Category", category=None)
+        categorized = make_video(title="Categorized", category="technology")
+        fake_db.store[uncategorized.id] = uncategorized
+        fake_db.store[categorized.id] = categorized
+
+        resp = await client.get("/api/videos?category=__uncategorized__")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 1
+        assert body["items"][0]["title"] == "No Category"
+
 
 class TestListVideosPaginated:
     @pytest.mark.asyncio
