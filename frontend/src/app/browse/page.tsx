@@ -111,7 +111,11 @@ function BrowsePageContent() {
   }, []);
 
   useEffect(() => {
-    void refreshCollections();
+    const timer = window.setTimeout(() => {
+      void refreshCollections();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [refreshCollections]);
 
   const categoryNameMap = useMemo(
