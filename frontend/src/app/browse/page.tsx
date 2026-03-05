@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowUpDown, Loader2, SearchX } from "lucide-react";
+import { DashboardToolbar } from "@/components/DashboardToolbar";
 import { ResourceListItem } from "@/components/ResourceListItem";
 import type { SortOption } from "@/components/Toolbar";
 import { Button } from "@/components/ui/button";
@@ -186,6 +187,7 @@ export default function BrowsePage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <DashboardToolbar />
       <div className="mx-auto max-w-4xl px-6 py-8">
         <Link
           href="/"
