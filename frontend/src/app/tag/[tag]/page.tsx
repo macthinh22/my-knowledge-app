@@ -6,5 +6,11 @@ export default async function TagPage({
   params: Promise<{ tag: string }>;
 }) {
   const { tag } = await params;
-  redirect(`/browse?tag=${encodeURIComponent(tag)}`);
+  let normalizedTag = tag;
+
+  try {
+    normalizedTag = decodeURIComponent(tag);
+  } catch {}
+
+  redirect(`/browse?tag=${encodeURIComponent(normalizedTag)}`);
 }

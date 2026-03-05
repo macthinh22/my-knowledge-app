@@ -1,480 +1,352 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, VideoOff, SearchX, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Toolbar } from "@/components/Toolbar";
+  ArrowRight,
+  FolderOpen,
+  Hash,
+  Loader2,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { formatDistanceToNowStrict } from "date-fns";
+import { DashboardToolbar } from "@/components/DashboardToolbar";
 import { PendingVideoCard } from "@/components/PendingVideoCard";
-import { RecentlyAdded } from "@/components/RecentlyAdded";
-import { VideoCard } from "@/components/VideoCard";
-import { VideoListItem as VideoListItemComponent } from "@/components/VideoListItem";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useExtraction } from "@/context/extraction";
 import {
-  addVideoToCollection,
-  deleteVideo,
-  getCollection,
+  createCollection,
+  deleteCollection,
   listCategories,
   listCollections,
   listTags,
-  removeVideoFromCollection,
-  updateVideoCategory,
+  listVideos,
   type Category,
   type CollectionItem,
   type TagSummary,
   type VideoListItem,
 } from "@/lib/api";
-import { usePaginatedVideos } from "@/hooks/usePaginatedVideos";
-import { CollectionsSidebar } from "@/components/CollectionsSidebar";
-import type { SortOption } from "@/components/Toolbar";
-
-
-function LoadMoreTrigger({
-  onVisible,
-  hasMore,
-  loadingMore,
-}: {
-  onVisible: () => void;
-  hasMore: boolean;
-  loadingMore: boolean;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!hasMore || !ref.current) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) onVisible();
-      },
-      { rootMargin: "200px" },
-    );
-    observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [onVisible, hasMore]);
-
-  return (
-    <div ref={ref} className="flex justify-center py-8">
-      {loadingMore && (
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      )}
-    </div>
-  );
-}
+import {
+  buildCategoryColorMap,
+  categoryLabel,
+  getCategoryBadgeClass,
+} from "@/lib/categories";
 
 export default function HomePage() {
-  const {
-    activeJob,
-    extractError: error,
-    extractInfo: info,
-  } = useExtraction();
+  const { activeJob } = useExtraction();
 
-  const [search, setSearch] = useState("");
-  const [view, setView] = useState<"grid" | "list">("grid");
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
-  const [keywordFilterMode, setKeywordFilterMode] = useState<"all" | "any">("all");
-  const [allKeywords, setAllKeywords] = useState<TagSummary[]>([]);
-  const [sortOption, setSortOption] = useState<SortOption>("created_at_desc");
-  const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
-  const [reviewStatus, setReviewStatus] = useState<string | null>(null);
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+  const [tags, setTags] = useState<TagSummary[]>([]);
   const [collections, setCollections] = useState<CollectionItem[]>([]);
-  const [videoCollectionMap, setVideoCollectionMap] = useState<Record<string, Set<string>>>({});
-  const [categoryOverrides, setCategoryOverrides] = useState<Record<string, string | null>>({});
-  const [deletedVideoIds, setDeletedVideoIds] = useState<Set<string>>(new Set());
-  const [videoPendingDelete, setVideoPendingDelete] = useState<VideoListItem | null>(null);
-  const [deletingVideo, setDeletingVideo] = useState(false);
+  const [recentItems, setRecentItems] = useState<VideoListItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const {
-    videos,
-    total,
-    loading,
-    loadingMore,
-    hasMore,
-    loadMore,
-    refresh: refreshVideos,
-  } = usePaginatedVideos({
-    search: search || undefined,
-    tag: selectedKeywords.length ? selectedKeywords.join(",") : undefined,
-    tag_mode: keywordFilterMode,
-    category: selectedCategory || undefined,
-    sort_by: sortOption.replace(/_(?:asc|desc)$/, ""),
-    sort_order: sortOption.endsWith("_asc") ? "asc" : "desc",
-    collection_id: selectedCollection || undefined,
-    review_status: reviewStatus || undefined,
-  });
+  const [showCreateCollection, setShowCreateCollection] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState("");
+  const [creatingCollection, setCreatingCollection] = useState(false);
 
-  const filtered = useMemo(
-    () => videos
-      .filter((video) => !deletedVideoIds.has(video.id))
-      .map((video) => {
-        if (!(video.id in categoryOverrides)) return video;
-        return {
-          ...video,
-          category: categoryOverrides[video.id],
-        };
-      }),
-    [videos, deletedVideoIds, categoryOverrides],
-  );
+  const fetchDashboardData = useCallback(async () => {
+    setLoading(true);
 
-  const visibleTotal = total - (videos.length - filtered.length);
-  const hasActiveLibraryFilters = Boolean(search.trim())
-    || selectedKeywords.length > 0
-    || selectedCategory !== null
-    || selectedCollection !== null
-    || reviewStatus !== null;
-
-  useEffect(() => {
-    listCategories().then(setCategories).catch(() => setCategories([]));
-  }, []);
-
-  useEffect(() => {
-    listTags({ limit: 200 }).then(setAllKeywords).catch(() => setAllKeywords([]));
-  }, []);
-
-  const refreshCollectionsAndMembership = useCallback(async () => {
     try {
-      const nextCollections = await listCollections();
-      setCollections(nextCollections);
+      const [nextCategories, nextTags, nextCollections, nextRecentItems] =
+        await Promise.all([
+          listCategories().catch(() => [] as Category[]),
+          listTags({ limit: 20 }).catch(() => [] as TagSummary[]),
+          listCollections().catch(() => [] as CollectionItem[]),
+          listVideos({ sort_by: "created_at", sort_order: "desc", limit: 5 })
+            .then((response) => response.items)
+            .catch(() => [] as VideoListItem[]),
+        ]);
 
-      const collectionDetails = await Promise.all(
-        nextCollections.map((collection) => getCollection(collection.id).catch(() => null)),
+      setCategories(nextCategories);
+      setTags(nextTags);
+      setCollections(nextCollections);
+      setRecentItems(nextRecentItems);
+
+      const counts: Record<string, number> = {};
+
+      await Promise.all(
+        nextCategories.map(async (category) => {
+          try {
+            const response = await listVideos({ category: category.slug, limit: 1 });
+            counts[category.slug] = response.total;
+          } catch {
+            counts[category.slug] = 0;
+          }
+        }),
       );
 
-      const nextMembership: Record<string, Set<string>> = {};
-      collectionDetails.forEach((detail, index) => {
-        if (!detail) return;
-        const collectionId = nextCollections[index]?.id;
-        if (!collectionId) return;
-        detail.video_ids.forEach((videoId) => {
-          if (!nextMembership[videoId]) {
-            nextMembership[videoId] = new Set();
-          }
-          nextMembership[videoId].add(collectionId);
-        });
-      });
-      setVideoCollectionMap(nextMembership);
-    } catch {
-      setCollections([]);
-      setVideoCollectionMap({});
+      try {
+        const allResponse = await listVideos({ limit: 1 });
+        const categorizedTotal = Object.values(counts).reduce(
+          (accumulator, count) => accumulator + count,
+          0,
+        );
+        counts.__uncategorized = Math.max(allResponse.total - categorizedTotal, 0);
+      } catch {}
+
+      setCategoryCounts(counts);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void refreshCollectionsAndMembership();
-  }, [refreshCollectionsAndMembership]);
-
-  const refreshTags = useCallback(() => {
-    listTags({ limit: 200 }).then(setAllKeywords).catch(() => setAllKeywords([]));
-  }, []);
+    void fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const categoryNameMap = useMemo(
-    () => Object.fromEntries(categories.map((c) => [c.slug, c.name])),
+    () => Object.fromEntries(categories.map((category) => [category.slug, category.name])),
     [categories],
   );
 
-  const categoryVideoCounts = useMemo<Record<string, number>>(() => {
-    const counts: Record<string, number> = {};
-    filtered.forEach((video) => {
-      if (!video.category) return;
-      counts[video.category] = (counts[video.category] ?? 0) + 1;
-    });
-    return counts;
-  }, [filtered]);
-
-  const refreshAfterTagMutation = useCallback(async () => {
-    refreshTags();
-    refreshVideos();
-    const tags = await listTags({ limit: 200 });
-    const validTagNames = new Set(tags.map((t) => t.tag));
-    setSelectedKeywords((prev) => prev.filter((kw) => validTagNames.has(kw)));
-  }, [refreshTags, refreshVideos]);
-
-  const handleVideoCategoryChange = useCallback(
-    async (videoId: string, category: string | null) => {
-      await updateVideoCategory(videoId, category);
-      setCategoryOverrides((prev) => ({
-        ...prev,
-        [videoId]: category,
-      }));
-    },
-    [],
+  const categoryColorMap = useMemo(
+    () => buildCategoryColorMap(categories),
+    [categories],
   );
 
-  const handleVideoCollectionToggle = useCallback(
-    async (videoId: string, collectionId: string, checked: boolean) => {
-      if (checked) {
-        await addVideoToCollection(collectionId, videoId);
-      } else {
-        await removeVideoFromCollection(collectionId, videoId);
-      }
+  const handleCreateCollection = async () => {
+    const name = newCollectionName.trim();
+    if (!name) {
+      return;
+    }
 
-      setVideoCollectionMap((prev) => {
-        const next = { ...prev };
-        const videoCollectionIds = new Set(next[videoId] ?? []);
+    setCreatingCollection(true);
 
-        if (checked) {
-          videoCollectionIds.add(collectionId);
-        } else {
-          videoCollectionIds.delete(collectionId);
-        }
-
-        if (videoCollectionIds.size === 0) {
-          delete next[videoId];
-        } else {
-          next[videoId] = videoCollectionIds;
-        }
-
-        return next;
-      });
-    },
-    [],
-  );
-
-  const handleDeleteVideoConfirm = useCallback(async () => {
-    if (!videoPendingDelete) return;
-
-    setDeletingVideo(true);
     try {
-      await deleteVideo(videoPendingDelete.id);
-
-      setDeletedVideoIds((prev) => {
-        const next = new Set(prev);
-        next.add(videoPendingDelete.id);
-        return next;
-      });
-
-      setCategoryOverrides((prev) => {
-        if (!(videoPendingDelete.id in prev)) return prev;
-        const next = { ...prev };
-        delete next[videoPendingDelete.id];
-        return next;
-      });
-
-      setVideoCollectionMap((prev) => {
-        if (!prev[videoPendingDelete.id]) return prev;
-        const next = { ...prev };
-        delete next[videoPendingDelete.id];
-        return next;
-      });
-
-      setVideoPendingDelete(null);
-      refreshVideos();
-      void refreshCollectionsAndMembership();
+      await createCollection(name);
+      setNewCollectionName("");
+      setShowCreateCollection(false);
+      const nextCollections = await listCollections();
+      setCollections(nextCollections);
     } finally {
-      setDeletingVideo(false);
+      setCreatingCollection(false);
     }
-  }, [videoPendingDelete, refreshVideos, refreshCollectionsAndMembership]);
+  };
 
-  const closeDeleteDialog = useCallback((open: boolean) => {
-    if (!open && !deletingVideo) {
-      setVideoPendingDelete(null);
-    }
-  }, [deletingVideo]);
+  const handleDeleteCollection = async (id: string) => {
+    await deleteCollection(id);
+    setCollections((previous) => previous.filter((collection) => collection.id !== id));
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <DashboardToolbar />
+        <div className="flex justify-center py-24">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Toolbar
-        onSearchChange={setSearch}
-        view={view}
-        onViewChange={setView}
-        sortOption={sortOption}
-        onSortChange={setSortOption}
-        availableTags={allKeywords}
-        availableCategories={categories}
-        categoryVideoCounts={categoryVideoCounts}
-        selectedCategory={selectedCategory}
-        selectedKeywords={selectedKeywords}
-        onCategoryChange={setSelectedCategory}
-        onKeywordsChange={setSelectedKeywords}
-        keywordFilterMode={keywordFilterMode}
-        onKeywordFilterModeChange={setKeywordFilterMode}
-        reviewStatus={reviewStatus}
-        onReviewStatusChange={setReviewStatus}
-        onTagDataChanged={refreshAfterTagMutation}
-      />
+    <div className="min-h-screen bg-background">
+      <DashboardToolbar />
 
-      <div className="flex flex-1">
-        <CollectionsSidebar
-          selectedCollection={selectedCollection}
-          onCollectionChange={setSelectedCollection}
-          onCollectionsChanged={refreshCollectionsAndMembership}
-        />
-      <main className="min-w-0 flex-1 px-6 py-6">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-              <h1 className="text-lg font-semibold">
-               {visibleTotal > 0
-                 ? `Showing ${filtered.length} of ${visibleTotal} videos`
-                 : loading
-                   ? ""
-                   : "No videos found"}
-            </h1>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            {info && <p className="text-sm text-muted-foreground">{info}</p>}
-          </div>
-          <Button asChild>
-            <Link href="/video/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Video
+      <main className="mx-auto max-w-4xl space-y-10 px-6 py-8">
+        {activeJob && (
+          <section>
+            <PendingVideoCard job={activeJob} />
+          </section>
+        )}
+
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Recently Added</h2>
+            <Link
+              href="/browse?sort=created_at_desc"
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              View all <ArrowRight className="h-3.5 w-3.5" />
             </Link>
-          </Button>
-        </div>
-
-        {!hasActiveLibraryFilters && (
-          <RecentlyAdded
-            refreshKey={deletedVideoIds.size}
-            categoryNameMap={categoryNameMap}
-            categories={categories}
-            collections={collections}
-            selectedCollectionMap={videoCollectionMap}
-            onCategoryChange={handleVideoCategoryChange}
-            onCollectionToggle={handleVideoCollectionToggle}
-            onDelete={(video) => setVideoPendingDelete(video)}
-          />
-        )}
-
-        {!hasActiveLibraryFilters && (
-          <h2 className="mb-4 text-lg font-semibold">All Videos</h2>
-        )}
-
-        {loading && (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="space-y-3">
-                <Skeleton className="aspect-video w-full rounded-lg" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
-              </div>
-            ))}
           </div>
-        )}
 
-        {!loading && total === 0 && !activeJob && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            {search || selectedKeywords.length > 0 || selectedCategory ? (
-              <>
-                <SearchX className="h-12 w-12 text-muted-foreground mb-4" />
-                <h2 className="text-lg font-medium">No matches</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Try a different search term or clear your filters.
-                </p>
-              </>
+          {recentItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No resources yet.</p>
+          ) : (
+            <div className="space-y-1">
+              {recentItems.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/video/${item.id}`}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
+                >
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {item.title ?? "Untitled"}
+                  </span>
+
+                  {item.channel_name && (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {item.channel_name}
+                    </span>
+                  )}
+
+                  {item.category && (
+                    <Badge
+                      variant="outline"
+                      className={`shrink-0 px-1.5 py-0 text-[10px] ${getCategoryBadgeClass(categoryColorMap[item.category])}`}
+                    >
+                      {categoryLabel(item.category, categoryNameMap)}
+                    </Badge>
+                  )}
+
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatDistanceToNowStrict(new Date(item.created_at), {
+                      addSuffix: true,
+                    })}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="grid gap-8 md:grid-cols-2">
+          <div>
+            <h2 className="mb-3 text-lg font-semibold">Categories</h2>
+            <div className="space-y-1">
+              {categories.map((category) => (
+                <Link
+                  key={category.id}
+                  href={`/category/${category.slug}`}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
+                >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{
+                      backgroundColor: `var(--color-${category.color ?? "slate"}-500, var(--color-slate-500))`,
+                    }}
+                  />
+                  <span className="min-w-0 flex-1">{category.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {categoryCounts[category.slug] ?? 0}
+                  </span>
+                </Link>
+              ))}
+
+              {(categoryCounts.__uncategorized ?? 0) > 0 && (
+                <Link
+                  href="/browse"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent"
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-muted-foreground/30" />
+                  <span className="min-w-0 flex-1">Uncategorized</span>
+                  <span className="text-xs">{categoryCounts.__uncategorized}</span>
+                </Link>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="mb-3 text-lg font-semibold">Tags</h2>
+            {tags.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No tags yet.</p>
             ) : (
-              <>
-                <VideoOff className="h-12 w-12 text-muted-foreground mb-4" />
-                <h2 className="text-lg font-medium">No videos yet</h2>
-                <p className="text-sm text-muted-foreground mt-1 mb-4">
-                  Add your first YouTube video to start building your knowledge base.
-                </p>
-                <Button asChild>
-                  <Link href="/video/new">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Video
+              <div className="space-y-1">
+                {tags.map((tag) => (
+                  <Link
+                    key={tag.tag}
+                    href={`/tag/${encodeURIComponent(tag.tag)}`}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
+                  >
+                    <Hash className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1">{tag.tag}</span>
+                    <span className="text-xs text-muted-foreground">{tag.usage_count}</span>
                   </Link>
-                </Button>
-              </>
+                ))}
+              </div>
             )}
           </div>
-        )}
+        </section>
 
-        {!loading && (filtered.length > 0 || activeJob) && view === "grid" && (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] items-stretch gap-4">
-            {activeJob && <PendingVideoCard job={activeJob} view="grid" />}
-            {filtered.map((video) => (
-              <VideoCard
-                key={video.id}
-                video={video}
-                categoryNameMap={categoryNameMap}
-                categories={categories}
-                collections={collections}
-                selectedCollectionIds={videoCollectionMap[video.id] ?? new Set()}
-                onCategoryChange={(category) => handleVideoCategoryChange(video.id, category)}
-                onCollectionToggle={(collectionId, checked) => (
-                  handleVideoCollectionToggle(video.id, collectionId, checked)
-                )}
-                onDelete={() => setVideoPendingDelete(video)}
-              />
-            ))}
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Collections</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCreateCollection(true)}
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              New
+            </Button>
           </div>
-        )}
 
-        {!loading && (filtered.length > 0 || activeJob) && view === "list" && (
-          <div className="space-y-1">
-            {activeJob && <PendingVideoCard job={activeJob} view="list" />}
-            {filtered.map((video) => (
-              <VideoListItemComponent
-                key={video.id}
-                video={video}
-                categoryNameMap={categoryNameMap}
-                categories={categories}
-                collections={collections}
-                selectedCollectionIds={videoCollectionMap[video.id] ?? new Set()}
-                onCategoryChange={(category) => handleVideoCategoryChange(video.id, category)}
-                onCollectionToggle={(collectionId, checked) => (
-                  handleVideoCollectionToggle(video.id, collectionId, checked)
-                )}
-                onDelete={() => setVideoPendingDelete(video)}
+          {showCreateCollection && (
+            <div className="mb-3 flex items-center gap-2">
+              <Input
+                placeholder="Collection name"
+                value={newCollectionName}
+                onChange={(event) => setNewCollectionName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    void handleCreateCollection();
+                  }
+                }}
+                autoFocus
+                className="max-w-xs"
               />
-            ))}
-          </div>
-        )}
+              <Button
+                size="sm"
+                onClick={() => void handleCreateCollection()}
+                disabled={creatingCollection}
+              >
+                Create
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setShowCreateCollection(false);
+                  setNewCollectionName("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
 
-        {!loading && (
-          <LoadMoreTrigger
-            onVisible={loadMore}
-            hasMore={hasMore}
-            loadingMore={loadingMore}
-          />
-        )}
+          {collections.length === 0 && !showCreateCollection ? (
+            <p className="text-sm text-muted-foreground">No collections yet.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {collections.map((collection) => (
+                <Link
+                  key={collection.id}
+                  href={`/collection/${collection.id}`}
+                  className="group flex items-start gap-3 rounded-lg border p-4 transition-colors hover:bg-accent"
+                >
+                  <FolderOpen className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-medium">{collection.name}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {collection.video_count} items
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      void handleDeleteCollection(collection.id);
+                    }}
+                    className="shrink-0 rounded p-1 opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
       </main>
-      </div>
-
-      <Dialog
-        open={videoPendingDelete !== null}
-        onOpenChange={closeDeleteDialog}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete video?</DialogTitle>
-            <DialogDescription>
-              This will permanently delete &ldquo;{videoPendingDelete?.title ?? "Untitled"}&rdquo; and all associated notes and analysis. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setVideoPendingDelete(null)}
-              disabled={deletingVideo}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteVideoConfirm}
-              disabled={deletingVideo || !videoPendingDelete}
-            >
-              {deletingVideo ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
