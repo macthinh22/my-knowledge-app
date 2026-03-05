@@ -43,7 +43,9 @@ class _KnowledgeSchema(BaseModel):
         )
     )
     keywords: list[str] = Field(
-        description="5-10 lowercase descriptive tags for search and categorization."
+        min_length=1,
+        max_length=5,
+        description="1-5 lowercase descriptive tags for search and categorization.",
     )
     category: str = Field(
         description=(
@@ -110,7 +112,8 @@ Even if the original video is in English or another language, your output must b
 - Write in Markdown with a bullet list or numbered examples.
 
 ### keywords
-- Generate 5-10 lowercase tags relevant to the video's content.
+- Generate 1-5 lowercase tags relevant to the video's content.
+- Do not force exactly 5 tags. Return fewer when only 1-4 are truly relevant.
 - Include the main topic, technologies, concepts, and domain.
 - Example: ["python", "lập trình bất đồng bộ", "event loop", "đồng thời", "backend"]
 """
