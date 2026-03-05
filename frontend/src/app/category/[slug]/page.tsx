@@ -1,0 +1,10 @@
+import { redirect } from "next/navigation";
+
+export default async function CategoryPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  redirect(`/browse?category=${encodeURIComponent(slug)}`);
+}
