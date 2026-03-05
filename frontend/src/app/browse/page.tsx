@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowUpDown, Loader2, SearchX } from "lucide-react";
@@ -36,7 +36,7 @@ import {
   type VideoListItem,
 } from "@/lib/api";
 
-export default function BrowsePage() {
+function BrowsePageContent() {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get("q") ?? "";
   const categorySlug = searchParams.get("category");
@@ -161,6 +161,7 @@ export default function BrowsePage() {
     duration_desc: "Longest",
     duration_asc: "Shortest",
     channel_name_asc: "Source A-Z",
+    channel_name_desc: "Source Z-A",
   };
 
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -294,5 +295,24 @@ export default function BrowsePage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function BrowsePageFallback() {
+  return (
+    <div className="min-h-screen bg-background">
+      <DashboardToolbar />
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    </div>
+  );
+}
+
+export default function BrowsePage() {
+  return (
+    <Suspense fallback={<BrowsePageFallback />}>
+      <BrowsePageContent />
+    </Suspense>
   );
 }

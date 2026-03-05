@@ -140,7 +140,7 @@ export default function DashboardPage() {
         <Button asChild size="sm">
           <Link href="/video/new">
             <Plus className="mr-2 h-4 w-4" />
-            Add Video
+            Add URL
           </Link>
         </Button>
       </header>
@@ -149,7 +149,7 @@ export default function DashboardPage() {
         {/* Stats grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard
-            label="Total videos"
+            label="Total resources"
             value={stats.total_videos}
             icon={BookOpen}
             href="/"
@@ -178,7 +178,7 @@ export default function DashboardPage() {
           {/* Category breakdown */}
           <div className="rounded-lg border p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4">
-              Videos by Category
+              Resources by Category
             </h2>
             <div className="space-y-3">
               {Object.entries(stats.videos_by_category)
@@ -193,7 +193,7 @@ export default function DashboardPage() {
                 ))}
               {Object.keys(stats.videos_by_category).length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  No categorized videos yet.
+                  No categorized resources yet.
                 </p>
               )}
             </div>

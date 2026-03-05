@@ -30,7 +30,7 @@ export function PendingVideoCard({ job, view = "grid" }: PendingVideoCardProps) 
         <div className="relative h-20 w-36 shrink-0 overflow-hidden rounded-md">
           <Image
             src={thumbnail}
-            alt="Processing video"
+            alt="Processing resource"
             fill
             className="object-cover opacity-70"
             sizes="160px"
@@ -46,7 +46,7 @@ export function PendingVideoCard({ job, view = "grid" }: PendingVideoCardProps) 
           </div>
         </div>
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
-          <p className="truncate text-sm font-medium">Extracting video...</p>
+          <p className="truncate text-sm font-medium">Extracting resource...</p>
           <p className="text-xs text-muted-foreground">Click to open live progress.</p>
         </div>
       </Link>
@@ -59,7 +59,7 @@ export function PendingVideoCard({ job, view = "grid" }: PendingVideoCardProps) 
         <div className="relative aspect-video flex-none overflow-hidden">
           <Image
             src={thumbnail}
-            alt="Processing video"
+            alt="Processing resource"
             fill
             className="object-cover opacity-70"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
@@ -77,7 +77,7 @@ export function PendingVideoCard({ job, view = "grid" }: PendingVideoCardProps) 
         </div>
 
         <div className="flex flex-1 flex-col gap-2 p-3">
-          <p className="text-sm font-medium">Extracting video...</p>
+          <p className="text-sm font-medium">Extracting resource...</p>
           <p className="text-xs text-muted-foreground">Click to open live progress.</p>
         </div>
       </div>

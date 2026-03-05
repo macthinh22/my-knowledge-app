@@ -450,7 +450,7 @@ export default function CategoriesPage() {
                 <th className="px-4 py-3 text-center">Color</th>
                 <th className="px-4 py-3 text-left">Name</th>
                 <th className="px-4 py-3 text-left">Slug</th>
-                <th className="px-4 py-3 text-center">Videos</th>
+                <th className="px-4 py-3 text-center">Resources</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -604,7 +604,7 @@ export default function CategoriesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this category?</AlertDialogTitle>
             <AlertDialogDescription>
-              Videos currently assigned to this category will be uncategorized.
+              Resources currently assigned to this category will be uncategorized.
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

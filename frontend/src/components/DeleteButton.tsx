@@ -48,7 +48,7 @@ export function DeleteButton({ videoId, videoTitle }: DeleteButtonProps) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete video?</DialogTitle>
+          <DialogTitle>Delete resource?</DialogTitle>
           <DialogDescription>
             This will permanently delete &ldquo;{videoTitle ?? "Untitled"}&rdquo; and all associated notes and analysis. This action cannot be undone.
           </DialogDescription>

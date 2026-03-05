@@ -116,7 +116,7 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
           return;
         }
 
-        setExtractError(latest.error_message || "Failed to extract video");
+        setExtractError(latest.error_message || "Failed to extract resource");
       } catch {
         pollFailureCountRef.current += 1;
         const backoffDelay = getPollingBackoffDelayMs(pollFailureCountRef.current);
@@ -159,14 +159,14 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
           persistActiveJobId(null);
           setActiveJob(null);
           await refreshVideos();
-          setExtractInfo("This video is already in your library.");
+          setExtractInfo("This resource is already in your library.");
           return job;
         }
 
-        setExtractError(job.error_message || "Failed to extract video");
+        setExtractError(job.error_message || "Failed to extract resource");
         return job;
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : "Failed to extract video";
+        const msg = e instanceof Error ? e.message : "Failed to extract resource";
         setExtractError(msg);
         return null;
       }
@@ -182,7 +182,7 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
         const data = await listVideos({ limit: 100 });
         if (isMounted) setVideos(data.items);
       } catch {
-        if (isMounted) setExtractError("Failed to load videos");
+        if (isMounted) setExtractError("Failed to load resources");
       } finally {
         if (isMounted) setLoadingVideos(false);
       }

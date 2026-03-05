@@ -37,7 +37,7 @@ export function VideoDetail({ video }: VideoDetailProps) {
       <TabsContent value="analysis" className="mt-4">
         {activeSections.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">
-            No analysis available for this video.
+            No analysis available for this resource.
           </p>
         ) : (
           <Accordion type="multiple" defaultValue={activeSections.map((s) => s.key)}>

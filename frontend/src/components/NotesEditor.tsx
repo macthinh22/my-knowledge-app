@@ -43,7 +43,7 @@ export function NotesEditor({ videoId, initialNotes }: NotesEditorProps) {
       <textarea
         id="notes"
         className="min-h-[200px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
-        placeholder="Write your notes about this video..."
+        placeholder="Write your notes about this resource..."
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         onBlur={save}

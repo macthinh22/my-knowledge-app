@@ -115,7 +115,7 @@ export default function VideoPage({
       } catch (videoError) {
         if (!isApiRequestError(videoError) || videoError.status !== 404) {
           if (!cancelled) {
-            setError("Failed to load video");
+            setError("Failed to load resource");
           }
           return;
         }
@@ -147,9 +147,9 @@ export default function VideoPage({
       } catch (jobError) {
         if (!cancelled) {
           if (isApiRequestError(jobError) && jobError.status === 404) {
-            setError("Video not found");
+            setError("Resource not found");
           } else {
-            setError("Failed to load video");
+            setError("Failed to load resource");
           }
         }
       }
@@ -291,7 +291,7 @@ export default function VideoPage({
 
         <div className="flex flex-col gap-6 p-6 lg:flex-row">
           <div className="space-y-4 lg:w-2/5 lg:sticky lg:top-6 lg:self-start">
-            <YouTubeEmbed youtubeId={job.youtube_id} title="Processing video" />
+            <YouTubeEmbed youtubeId={job.youtube_id} title="Processing resource" />
             <Skeleton className="h-6 w-3/4" />
             <Skeleton className="h-4 w-1/2" />
             <div className="space-y-2 pt-4">
@@ -321,7 +321,7 @@ export default function VideoPage({
   if (error || !video) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
-        <p className="text-destructive mb-4">{error || "Video not found"}</p>
+        <p className="text-destructive mb-4">{error || "Resource not found"}</p>
         <Button variant="outline" onClick={() => router.push("/")}>
           Back to library
         </Button>
@@ -345,7 +345,7 @@ export default function VideoPage({
         {/* Left panel - player + metadata */}
         <div className="lg:w-2/5">
           <div className="lg:sticky lg:top-6">
-            <YouTubeEmbed youtubeId={video.youtube_id} title={video.title ?? "Video"} />
+            <YouTubeEmbed youtubeId={video.youtube_id} title={video.title ?? "Resource"} />
 
             <div className="mt-4">
               <h1 className="text-xl font-semibold">{video.title ?? "Untitled"}</h1>
@@ -432,7 +432,7 @@ export default function VideoPage({
 
       {relatedVideos.length > 0 && (
         <div className="border-t px-6 py-6">
-          <h2 className="text-lg font-semibold mb-4">Related Videos</h2>
+          <h2 className="text-lg font-semibold mb-4">Related Resources</h2>
           <div className="flex gap-4 overflow-x-auto pb-2">
             {relatedVideos.map((rv) => (
               <Link

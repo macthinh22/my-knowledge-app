@@ -71,7 +71,7 @@ export function VideoActionDropdown({
           variant="ghost"
           size="icon-sm"
           disabled={disabled}
-          aria-label="Open video actions"
+          aria-label="Open resource actions"
           className="rounded-full bg-black/40 text-white ring-2 ring-white/30 backdrop-blur-sm hover:bg-black/60 hover:text-white"
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
@@ -171,7 +171,7 @@ export function VideoActionDropdown({
           }}
         >
           <Trash2 className="h-4 w-4" />
-          Delete video
+          Delete resource
         </DropdownMenuItem>
 
         <DropdownMenuSub>

@@ -10,7 +10,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Knowledge Base",
-  description: "Extract and organize knowledge from YouTube videos",
+  description: "Extract and organize knowledge from YouTube resources",
 };
 
 export default function RootLayout({

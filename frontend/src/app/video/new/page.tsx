@@ -39,7 +39,7 @@ export default function NewVideoPage() {
       <main className="flex flex-col items-center justify-center px-6 py-20">
         <div className="w-full max-w-xl space-y-4">
           <div className="space-y-2 text-center">
-            <h1 className="text-2xl font-semibold">Add a video</h1>
+            <h1 className="text-2xl font-semibold">Add a URL</h1>
             <p className="text-sm text-muted-foreground">
               Paste a YouTube link to extract knowledge from it.
             </p>
