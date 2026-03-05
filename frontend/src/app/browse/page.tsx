@@ -2,8 +2,9 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowUpDown, Loader2, SearchX } from "lucide-react";
+
 import { DashboardToolbar } from "@/components/DashboardToolbar";
 import { ResourceListItem } from "@/components/ResourceListItem";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 import { usePaginatedVideos } from "@/hooks/usePaginatedVideos";
 import {
   addVideoToCollection,
@@ -34,20 +36,37 @@ import {
   type CollectionItem,
   type VideoListItem,
 } from "@/lib/api";
+import {
+  applyQuickFilter,
+  buildBrowseSearchParams,
+  parseBrowseFilters,
+  type BrowseFilterState,
+  type QuickFilter,
+  type SortOption,
+} from "@/lib/browseFilters";
 
-type SortOption =
-  `${"created_at" | "title" | "duration" | "channel_name"}_${"asc" | "desc"}`;
+const QUICK_FILTER_OPTIONS: Array<{ key: QuickFilter; label: string }> = [
+  { key: "inbox", label: "Inbox" },
+  { key: "needs_review", label: "Needs Review" },
+  { key: "never_viewed", label: "Never Viewed" },
+  { key: "long_videos", label: "Long Videos" },
+];
 
 function BrowsePageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const searchQuery = searchParams.get("q") ?? "";
-  const categorySlug = searchParams.get("category");
-  const tagFilter = searchParams.get("tag");
-  const collectionId = searchParams.get("collection");
-  const initialSort =
-    (searchParams.get("sort") as SortOption | null) ?? "created_at_desc";
+  const parsed = useMemo(
+    () => parseBrowseFilters(new URLSearchParams(searchParams.toString())),
+    [searchParams],
+  );
 
-  const [sortOption, setSortOption] = useState<SortOption>(initialSort);
+  const searchQuery = parsed.search ?? "";
+  const categorySlug = parsed.category;
+  const tagFilter = parsed.tag;
+  const collectionId = parsed.collectionId;
+  const reviewStatus = parsed.reviewStatus;
+  const sortOption = parsed.sort;
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [videoCollectionMap, setVideoCollectionMap] = useState<
@@ -73,7 +92,9 @@ function BrowsePageContent() {
       category: categorySlug ?? undefined,
       tag: tagFilter ?? undefined,
       collection_id: collectionId ?? undefined,
+      review_status: reviewStatus ?? undefined,
     });
+  const showFirstLoadSkeletons = loading && videos.length === 0;
 
   const filtered = useMemo(
     () => videos.filter((video) => !deletedVideoIds.has(video.id)),
@@ -83,6 +104,32 @@ function BrowsePageContent() {
   useEffect(() => {
     listCategories().then(setCategories).catch(() => setCategories([]));
   }, []);
+
+  const pushFilterState = useCallback(
+    (nextState: BrowseFilterState) => {
+      const nextParams = buildBrowseSearchParams(nextState);
+      const query = nextParams.toString();
+      router.push(query ? `/browse?${query}` : "/browse");
+    },
+    [router],
+  );
+
+  const handleQuickFilter = useCallback(
+    (quickFilter: QuickFilter) => {
+      pushFilterState(applyQuickFilter(parsed, quickFilter));
+    },
+    [parsed, pushFilterState],
+  );
+
+  const handleSortChange = useCallback(
+    (nextSort: SortOption) => {
+      pushFilterState({
+        ...parsed,
+        sort: nextSort,
+      });
+    },
+    [parsed, pushFilterState],
+  );
 
   const refreshCollections = useCallback(async () => {
     const nextCollections = await listCollections().catch(
@@ -125,7 +172,19 @@ function BrowsePageContent() {
 
   const pageTitle = useMemo(() => {
     if (categorySlug) {
+      if (categorySlug === "__uncategorized__") {
+        return "Uncategorized";
+      }
+
       return categoryNameMap[categorySlug] ?? categorySlug;
+    }
+
+    if (reviewStatus === "stale") {
+      return "Needs Review";
+    }
+
+    if (reviewStatus === "never_viewed") {
+      return "Never Viewed";
     }
 
     if (tagFilter) {
@@ -142,7 +201,35 @@ function BrowsePageContent() {
     }
 
     return "All Resources";
-  }, [categorySlug, categoryNameMap, collections, collectionId, searchQuery, tagFilter]);
+  }, [
+    categorySlug,
+    categoryNameMap,
+    collections,
+    collectionId,
+    reviewStatus,
+    searchQuery,
+    tagFilter,
+  ]);
+
+  const activeQuickFilter = useMemo<QuickFilter | null>(() => {
+    if (categorySlug === "__uncategorized__") {
+      return "inbox";
+    }
+
+    if (reviewStatus === "stale") {
+      return "needs_review";
+    }
+
+    if (reviewStatus === "never_viewed") {
+      return "never_viewed";
+    }
+
+    if (!categorySlug && !reviewStatus && sortOption === "duration_desc") {
+      return "long_videos";
+    }
+
+    return null;
+  }, [categorySlug, reviewStatus, sortOption]);
 
   const handleDelete = async () => {
     if (!videoPendingDelete) {
@@ -221,7 +308,7 @@ function BrowsePageContent() {
               {Object.entries(sortLabels).map(([key, label]) => (
                 <DropdownMenuItem
                   key={key}
-                  onClick={() => setSortOption(key as SortOption)}
+                  onClick={() => handleSortChange(key as SortOption)}
                 >
                   {label}
                 </DropdownMenuItem>
@@ -230,9 +317,29 @@ function BrowsePageContent() {
           </DropdownMenu>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="mb-6 flex flex-wrap gap-2">
+          {QUICK_FILTER_OPTIONS.map((option) => (
+            <Button
+              key={option.key}
+              type="button"
+              variant={activeQuickFilter === option.key ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleQuickFilter(option.key)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+
+        {showFirstLoadSkeletons ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="rounded-xl border bg-card p-4">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="mt-2 h-3 w-full" />
+                <Skeleton className="mt-1.5 h-3 w-1/2" />
+              </div>
+            ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed p-16 text-muted-foreground">
@@ -241,32 +348,32 @@ function BrowsePageContent() {
           </div>
         ) : (
           <div className="divide-y rounded-2xl border bg-card shadow-sm">
-          <div>
-            {filtered.map((video) => (
-              <ResourceListItem
-                key={video.id}
-                video={video}
-                categoryNameMap={categoryNameMap}
-                categories={categories}
-                collections={collections}
-                selectedCollectionIds={videoCollectionMap[video.id] ?? new Set()}
-                onCategoryChange={async (category) => {
-                  await updateVideoCategory(video.id, category);
-                  refresh();
-                }}
-                onCollectionToggle={async (nextCollectionId, checked) => {
-                  if (checked) {
-                    await addVideoToCollection(nextCollectionId, video.id);
-                  } else {
-                    await removeVideoFromCollection(nextCollectionId, video.id);
-                  }
-                  void refreshCollections();
-                }}
-                onDelete={() => setVideoPendingDelete(video)}
-                showCategory={showCategory}
-              />
-            ))}
-          </div>
+            <div>
+              {filtered.map((video) => (
+                <ResourceListItem
+                  key={video.id}
+                  video={video}
+                  categoryNameMap={categoryNameMap}
+                  categories={categories}
+                  collections={collections}
+                  selectedCollectionIds={videoCollectionMap[video.id] ?? new Set()}
+                  onCategoryChange={async (category) => {
+                    await updateVideoCategory(video.id, category);
+                    refresh();
+                  }}
+                  onCollectionToggle={async (nextCollectionId, checked) => {
+                    if (checked) {
+                      await addVideoToCollection(nextCollectionId, video.id);
+                    } else {
+                      await removeVideoFromCollection(nextCollectionId, video.id);
+                    }
+                    void refreshCollections();
+                  }}
+                  onDelete={() => setVideoPendingDelete(video)}
+                  showCategory={showCategory}
+                />
+              ))}
+            </div>
           </div>
         )}
 

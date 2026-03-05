@@ -70,7 +70,7 @@ export function ResourceListItem({
           </div>
         </div>
       </Link>
-      <div className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 [&:has([data-state=open])]:opacity-100">
+      <div className="shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 [&:has([data-state=open])]:opacity-100">
         <VideoActionDropdown
           categories={categories}
           currentCategory={video.category}

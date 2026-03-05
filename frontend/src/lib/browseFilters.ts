@@ -28,20 +28,74 @@ export function parseBrowseFilters(params: URLSearchParams): BrowseFilterState {
 }
 
 export function applyQuickFilter(
-  current: Pick<BrowseFilterState, "sort">,
+  current: BrowseFilterState,
   quick: QuickFilter,
 ): BrowseFilterState {
   if (quick === "inbox") {
-    return { ...current, category: "__uncategorized__" };
+    return {
+      ...current,
+      category: "__uncategorized__",
+      tag: undefined,
+      collectionId: undefined,
+      reviewStatus: undefined,
+    };
   }
 
   if (quick === "needs_review") {
-    return { ...current, reviewStatus: "stale" };
+    return {
+      ...current,
+      category: undefined,
+      tag: undefined,
+      collectionId: undefined,
+      reviewStatus: "stale",
+    };
   }
 
   if (quick === "never_viewed") {
-    return { ...current, reviewStatus: "never_viewed" };
+    return {
+      ...current,
+      category: undefined,
+      tag: undefined,
+      collectionId: undefined,
+      reviewStatus: "never_viewed",
+    };
   }
 
-  return { ...current, sort: "duration_desc" };
+  return {
+    ...current,
+    category: undefined,
+    tag: undefined,
+    collectionId: undefined,
+    reviewStatus: undefined,
+    sort: "duration_desc",
+  };
+}
+
+export function buildBrowseSearchParams(
+  state: BrowseFilterState,
+): URLSearchParams {
+  const params = new URLSearchParams();
+
+  if (state.search) {
+    params.set("q", state.search);
+  }
+
+  if (state.category) {
+    params.set("category", state.category);
+  }
+
+  if (state.tag) {
+    params.set("tag", state.tag);
+  }
+
+  if (state.collectionId) {
+    params.set("collection", state.collectionId);
+  }
+
+  if (state.reviewStatus) {
+    params.set("review_status", state.reviewStatus);
+  }
+
+  params.set("sort", state.sort);
+  return params;
 }
