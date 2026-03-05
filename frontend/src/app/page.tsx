@@ -211,24 +211,28 @@ export default function HomePage() {
           <div>
             <h2 className="mb-3 text-lg font-semibold">Categories</h2>
             <div className="space-y-1">
-              {categories.map((category) => (
-                <Link
-                  key={category.id}
-                  href={`/category/${category.slug}`}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
-                >
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{
-                      backgroundColor: `var(--color-${category.color ?? "slate"}-500, var(--color-slate-500))`,
-                    }}
-                  />
-                  <span className="min-w-0 flex-1">{category.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {categoryCounts[category.slug] ?? 0}
-                  </span>
-                </Link>
-              ))}
+              {categories.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No categories yet.</p>
+              ) : (
+                categories.map((category) => (
+                  <Link
+                    key={category.id}
+                    href={`/category/${category.slug}`}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{
+                        backgroundColor: `var(--color-${category.color ?? "slate"}-500, var(--color-slate-500))`,
+                      }}
+                    />
+                    <span className="min-w-0 flex-1">{category.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {categoryCounts[category.slug] ?? 0}
+                    </span>
+                  </Link>
+                ))
+              )}
 
               {(categoryCounts.__uncategorized ?? 0) > 0 && (
                 <Link

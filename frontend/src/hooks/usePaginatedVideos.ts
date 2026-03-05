@@ -29,11 +29,18 @@ export function usePaginatedVideos(
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const offsetRef = useRef(0);
+  const requestInFlightRef = useRef(false);
 
   const filtersKey = JSON.stringify(filters);
 
   const fetchPage = useCallback(
     async (offset: number, append: boolean) => {
+      if (requestInFlightRef.current) {
+        return;
+      }
+
+      requestInFlightRef.current = true;
+
       try {
         if (append) setLoadingMore(true);
         else setLoading(true);
@@ -44,13 +51,32 @@ export function usePaginatedVideos(
           offset,
         });
 
-        setVideos((prev) => (append ? [...prev, ...data.items] : data.items));
+        setVideos((prev) => {
+          if (!append) {
+            return data.items;
+          }
+
+          const seen = new Set(prev.map((video) => video.id));
+          const merged = [...prev];
+
+          data.items.forEach((item) => {
+            if (seen.has(item.id)) {
+              return;
+            }
+
+            seen.add(item.id);
+            merged.push(item);
+          });
+
+          return merged;
+        });
         setTotal(data.total);
         offsetRef.current = offset + data.items.length;
         setError(null);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load videos");
       } finally {
+        requestInFlightRef.current = false;
         setLoading(false);
         setLoadingMore(false);
       }
