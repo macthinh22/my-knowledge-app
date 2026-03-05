@@ -61,12 +61,12 @@ export function DashboardToolbar() {
 
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" asChild>
-            <Link href="/dashboard">
+            <Link href="/dashboard" aria-label="Open analytics dashboard">
               <BarChart3 className="h-4 w-4" />
             </Link>
           </Button>
           <Button variant="ghost" size="icon" asChild>
-            <Link href="/categories">
+            <Link href="/categories" aria-label="Manage categories">
               <SlidersHorizontal className="h-4 w-4" />
             </Link>
           </Button>
