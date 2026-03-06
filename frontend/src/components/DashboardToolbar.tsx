@@ -6,11 +6,23 @@ import { useRouter } from "next/navigation";
 import {
   BarChart3,
   BookOpen,
+  FolderOpen,
+  LogOut,
   Search,
+  Settings,
   SlidersHorizontal,
+  User,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth";
 import { ThemeToggle } from "./ThemeToggle";
@@ -62,23 +74,60 @@ export function DashboardToolbar() {
         </form>
 
         <div className="flex items-center gap-1">
-          <span className="hidden text-sm text-muted-foreground md:inline">
-            {username ? `@${username}` : "Signed in"}
-          </span>
-          <Button variant="outline" size="sm" onClick={() => void logout()}>
-            Sign out
-          </Button>
           <Button variant="ghost" size="icon" asChild>
             <Link href="/dashboard" aria-label="Open analytics dashboard">
               <BarChart3 className="h-4 w-4" />
             </Link>
           </Button>
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/categories" aria-label="Manage categories">
-              <SlidersHorizontal className="h-4 w-4" />
-            </Link>
-          </Button>
           <ThemeToggle />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative h-8 w-8 rounded-full"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                  {username ? username[0].toUpperCase() : "?"}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel className="font-normal text-muted-foreground">
+                {username ? `@${username}` : "Signed in"}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/profile">
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/profile?tab=categories">
+                  <SlidersHorizontal className="mr-2 h-4 w-4" />
+                  Categories
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/profile?tab=collections">
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  Collections
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/profile?tab=settings">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => void logout()}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
