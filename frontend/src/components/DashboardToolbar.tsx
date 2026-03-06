@@ -12,11 +12,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/context/auth";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function DashboardToolbar() {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const { username, logout } = useAuth();
 
   const handleSearch = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -60,6 +62,12 @@ export function DashboardToolbar() {
         </form>
 
         <div className="flex items-center gap-1">
+          <span className="hidden text-sm text-muted-foreground md:inline">
+            {username ? `@${username}` : "Signed in"}
+          </span>
+          <Button variant="outline" size="sm" onClick={() => void logout()}>
+            Sign out
+          </Button>
           <Button variant="ghost" size="icon" asChild>
             <Link href="/dashboard" aria-label="Open analytics dashboard">
               <BarChart3 className="h-4 w-4" />
