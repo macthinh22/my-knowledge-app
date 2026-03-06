@@ -1,11 +1,70 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ARRAY, Column, ForeignKey, Integer, String, Table, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import (
+    ARRAY,
+    Column,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    username: Mapped[str] = mapped_column(
+        String(50), unique=True, nullable=False, index=True
+    )
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    preferences: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default="{}",
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
 
 
 collection_videos = Table(
@@ -30,12 +89,20 @@ class Video(Base):
     """ORM model for the videos table."""
 
     __tablename__ = "videos"
+    __table_args__ = (
+        UniqueConstraint("user_id", "youtube_id", name="uq_video_user_youtube_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     youtube_url: Mapped[str] = mapped_column(String(500), nullable=False)
-    youtube_id: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    youtube_id: Mapped[str] = mapped_column(String(20), nullable=False)
     title: Mapped[str | None] = mapped_column(String(500))
     thumbnail_url: Mapped[str | None] = mapped_column(String(500))
     channel_name: Mapped[str | None] = mapped_column(String(255))
@@ -73,6 +140,11 @@ class VideoJob(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     youtube_url: Mapped[str] = mapped_column(String(500), nullable=False)
     youtube_id: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
@@ -94,13 +166,19 @@ class VideoJob(Base):
 
 class Category(Base):
     __tablename__ = "categories"
+    __table_args__ = (
+        UniqueConstraint("user_id", "slug", name="uq_category_user_slug"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    slug: Mapped[str] = mapped_column(
-        String(50), unique=True, nullable=False, index=True
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
     )
+    slug: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     color: Mapped[str | None] = mapped_column(String(20), nullable=True)
     display_order: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
@@ -112,13 +190,19 @@ class Category(Base):
 
 class TagAlias(Base):
     __tablename__ = "tag_aliases"
+    __table_args__ = (
+        UniqueConstraint("user_id", "alias", name="uq_tagalias_user_alias"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    alias: Mapped[str] = mapped_column(
-        String(100), unique=True, nullable=False, index=True
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
     )
+    alias: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     canonical: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -134,6 +218,11 @@ class Collection(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
