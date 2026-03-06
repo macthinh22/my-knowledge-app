@@ -341,7 +341,7 @@ export function CategoriesTab() {
         </p>
       )}
 
-      <section className="flex justify-end">
+      <section className="mb-4 flex justify-end">
         <Dialog
           open={addOpen}
           onOpenChange={(open) => {
