@@ -349,3 +349,38 @@ export function deleteTag(tag: string) {
         method: "DELETE",
     });
 }
+
+export function changePassword(currentPassword: string, newPassword: string) {
+    return request<void>("/api/auth/password", {
+        method: "PATCH",
+        body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword,
+        }),
+    });
+}
+
+export function updateCollection(
+    id: string,
+    data: { name?: string; description?: string },
+) {
+    return request<CollectionItem>(`/api/collections/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+    });
+}
+
+export interface UserSettings {
+    preferences: Record<string, unknown>;
+}
+
+export function getSettings() {
+    return request<UserSettings>("/api/auth/settings");
+}
+
+export function updateSettings(preferences: Record<string, unknown>) {
+    return request<UserSettings>("/api/auth/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ preferences }),
+    });
+}
