@@ -181,3 +181,36 @@ class DashboardStats(BaseModel):
     videos_by_category: dict[str, int]
     top_tags: list[TagSummaryResponse]
     recent_additions: int
+
+
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    username: str
+    created_at: datetime
+
+
+class UserSettingsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    preferences: dict
+
+
+class UserSettingsUpdate(BaseModel):
+    preferences: dict

@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.logging_config import setup_logging
+from app.routers.auth import router as auth_router
 from app.routers.categories import router as categories_router
 from app.routers.collections import router as collections_router
 from app.routers.stats import router as stats_router
@@ -43,6 +44,7 @@ app.add_middleware(
 )
 
 # Routers
+app.include_router(auth_router)
 app.include_router(videos_router)
 app.include_router(tags_router)
 app.include_router(categories_router)
