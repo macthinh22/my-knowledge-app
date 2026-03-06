@@ -8,7 +8,10 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.database import get_db
-from app.models import Category, Collection, TagAlias, Video, VideoJob
+from app.dependencies import get_current_user
+from app.models import Category, Collection, TagAlias, User, Video, VideoJob
+
+TEST_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 # ---------------------------------------------------------------------------
 # Fake video data
@@ -19,6 +22,7 @@ def make_video(**overrides) -> Video:
     """Create a Video ORM instance with sensible defaults."""
     defaults = dict(
         id=overrides.pop("id", uuid.uuid4()),
+        user_id=TEST_USER_ID,
         youtube_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
         youtube_id="dQw4w9WgXcQ",
         title="Test Video",
@@ -335,6 +339,15 @@ def client(fake_db):
     async def override_get_db():
         yield fake_db
 
+    async def override_get_current_user():
+        return User(
+            id=TEST_USER_ID,
+            username="test-user",
+            password_hash="hashed",
+            created_at=datetime(2026, 1, 15, tzinfo=UTC),
+        )
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
     yield AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
     app.dependency_overrides.clear()
