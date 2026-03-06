@@ -40,6 +40,7 @@ def make_video(**overrides) -> Video:
         updated_at=datetime(2026, 1, 15, tzinfo=UTC),
         view_count=0,
         last_viewed_at=None,
+        is_favourite=False,
     )
     defaults.update(overrides)
     return Video(**defaults)

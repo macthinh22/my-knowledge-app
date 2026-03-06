@@ -10,6 +10,7 @@ import {
   Check,
   ChevronsUpDown,
   Clock,
+  Heart,
   Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ import {
   getRelatedVideos,
   listCategories,
   updateVideoCategory,
+  updateVideoFavourite,
   isApiRequestError,
   type Category,
   type Video,
@@ -88,6 +90,7 @@ export default function VideoPage({
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [savingCategory, setSavingCategory] = useState(false);
+  const [togglingFavourite, setTogglingFavourite] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [relatedVideos, setRelatedVideos] = useState<VideoListItem[]>([]);
@@ -237,6 +240,20 @@ export default function VideoPage({
     },
     [syncVideoInLibrary, video],
   );
+
+  const handleToggleFavourite = useCallback(async () => {
+    if (!video) return;
+    setTogglingFavourite(true);
+    try {
+      const updated = await updateVideoFavourite(video.id, !video.is_favourite);
+      setVideo(updated);
+      syncVideoInLibrary(updated);
+    } catch {
+      // silently ignore
+    } finally {
+      setTogglingFavourite(false);
+    }
+  }, [syncVideoInLibrary, video]);
 
   useEffect(() => {
     if (!job || !ACTIVE_JOB_STATUSES.has(job.status)) {
@@ -422,7 +439,25 @@ export default function VideoPage({
             <YouTubeEmbed youtubeId={video.youtube_id} title={video.title ?? "Resource"} />
 
             <div className="mt-4 rounded-2xl border bg-card p-5 shadow-sm">
-              <h1 className="text-xl font-semibold">{video.title ?? "Untitled"}</h1>
+              <div className="flex items-start justify-between gap-2">
+                <h1 className="text-xl font-semibold">{video.title ?? "Untitled"}</h1>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0"
+                  disabled={togglingFavourite}
+                  onClick={handleToggleFavourite}
+                >
+                  <Heart
+                    className={cn(
+                      "h-5 w-5",
+                      video.is_favourite
+                        ? "fill-red-500 text-red-500"
+                        : "text-muted-foreground",
+                    )}
+                  />
+                </Button>
+              </div>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                 {video.channel_name && <span>{video.channel_name}</span>}
                 {video.duration && (

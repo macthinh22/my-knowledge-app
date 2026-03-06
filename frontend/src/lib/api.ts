@@ -21,6 +21,7 @@ export interface VideoListItem {
     keywords: string[] | null;
     category: string | null;
     transcript_source: string | null;
+    is_favourite: boolean;
     created_at: string;
     updated_at: string;
 }
@@ -152,6 +153,7 @@ export interface VideoListParams {
     category?: string;
     collection_id?: string;
     review_status?: string;
+    is_favourite?: boolean;
 }
 
 /** List videos with server-side pagination, search, and filtering. */
@@ -187,6 +189,13 @@ export function updateVideoCategory(id: string, category: string | null) {
     return request<Video>(`/api/videos/${id}`, {
         method: "PATCH",
         body: JSON.stringify({ category }),
+    });
+}
+
+export function updateVideoFavourite(id: string, is_favourite: boolean) {
+    return request<Video>(`/api/videos/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_favourite }),
     });
 }
 

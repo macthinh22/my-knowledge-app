@@ -130,6 +130,9 @@ class Video(Base):
     last_viewed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     view_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
+    # Favourite
+    is_favourite: Mapped[bool] = mapped_column(default=False, server_default="false")
+
     def __repr__(self) -> str:
         return f"<Video {self.youtube_id}: {self.title}>"
 

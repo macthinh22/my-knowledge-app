@@ -3,13 +3,13 @@ import type { VideoListItem } from "@/lib/api";
 type QueueSlice = { count: number; preview: VideoListItem[] };
 
 export type TodayQueues = {
-  inbox: QueueSlice;
+  favourites: QueueSlice;
   recentlyAdded: QueueSlice;
   needsReview: QueueSlice;
 };
 
 export function buildTodayQueues(input: {
-  inbox: VideoListItem[];
+  favourites: VideoListItem[];
   recentlyAdded: VideoListItem[];
   needsReview: VideoListItem[];
   previewLimit: number;
@@ -20,7 +20,7 @@ export function buildTodayQueues(input: {
   });
 
   return {
-    inbox: slice(input.inbox),
+    favourites: slice(input.favourites),
     recentlyAdded: slice(input.recentlyAdded),
     needsReview: slice(input.needsReview),
   };

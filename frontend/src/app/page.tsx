@@ -29,7 +29,7 @@ import {
 } from "@/lib/todayQueues";
 
 const EMPTY_QUEUES: TodayQueues = {
-  inbox: { count: 0, preview: [] },
+  favourites: { count: 0, preview: [] },
   recentlyAdded: { count: 0, preview: [] },
   needsReview: { count: 0, preview: [] },
 };
@@ -39,7 +39,6 @@ export default function HomePage() {
   const hadActiveJobRef = useRef(false);
 
   const [categories, setCategories] = useState<Category[]>([]);
-  const [recentItems, setRecentItems] = useState<VideoListItem[]>([]);
   const [randomItems, setRandomItems] = useState<VideoListItem[]>([]);
   const [queues, setQueues] = useState<TodayQueues>(EMPTY_QUEUES);
   const [loading, setLoading] = useState(true);
@@ -50,7 +49,7 @@ export default function HomePage() {
     }
 
     try {
-      const [nextCategories, recentResponse, randomResponse, inboxRes, needsReviewRes] =
+      const [nextCategories, recentResponse, randomResponse, favouritesRes, needsReviewRes] =
         await Promise.all([
           listCategories().catch(() => [] as Category[]),
           listVideos({
@@ -63,7 +62,7 @@ export default function HomePage() {
             limit: 10,
           }).catch(() => ({ items: [] as VideoListItem[], total: 0 })),
           listVideos({
-            category: "__uncategorized__",
+            is_favourite: true,
             sort_by: "created_at",
             sort_order: "desc",
             limit: 20,
@@ -77,12 +76,11 @@ export default function HomePage() {
         ]);
 
       setCategories(nextCategories);
-      setRecentItems(recentResponse.items);
       setRandomItems(randomResponse.items);
 
       setQueues(
         buildTodayQueues({
-          inbox: inboxRes.items,
+          favourites: favouritesRes.items,
           recentlyAdded: recentResponse.items,
           needsReview: needsReviewRes.items,
           previewLimit: 3,
@@ -189,11 +187,11 @@ export default function HomePage() {
 
           <div className="grid gap-4 md:grid-cols-3">
             <TodayQueueCard
-              title="Uncategorized"
-              count={queues.inbox.count}
-              emptyMessage="No uncategorized items."
-              href="/browse?category=__uncategorized__"
-              items={queues.inbox.preview}
+              title="Favourites"
+              count={queues.favourites.count}
+              emptyMessage="No favourites yet."
+              href="/browse?is_favourite=true"
+              items={queues.favourites.preview}
             />
             <TodayQueueCard
               title="Recently Added"

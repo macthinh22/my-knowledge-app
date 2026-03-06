@@ -65,6 +65,7 @@ function BrowsePageContent() {
   const tagFilter = parsed.tag;
   const collectionId = parsed.collectionId;
   const reviewStatus = parsed.reviewStatus;
+  const isFavourite = parsed.isFavourite;
   const sortOption = parsed.sort;
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -93,6 +94,7 @@ function BrowsePageContent() {
       tag: tagFilter ?? undefined,
       collection_id: collectionId ?? undefined,
       review_status: reviewStatus ?? undefined,
+      is_favourite: isFavourite,
     });
   const showFirstLoadSkeletons = loading && videos.length === 0;
 

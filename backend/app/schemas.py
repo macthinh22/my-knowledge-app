@@ -15,6 +15,7 @@ class VideoUpdate(BaseModel):
 
     notes: str | None = None
     category: str | None = None
+    is_favourite: bool | None = None
 
 
 class VideoResponse(BaseModel):
@@ -37,6 +38,7 @@ class VideoResponse(BaseModel):
     category: str | None = None
     notes: str | None = None
     transcript_source: str | None = None
+    is_favourite: bool = False
     created_at: datetime
     updated_at: datetime
     last_viewed_at: datetime | None = None
@@ -60,6 +62,7 @@ class VideoListResponse(BaseModel):
     keywords: list[str] | None = None
     category: str | None = None
     transcript_source: str | None = None
+    is_favourite: bool = False
     created_at: datetime
     updated_at: datetime
     last_viewed_at: datetime | None = None

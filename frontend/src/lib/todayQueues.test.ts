@@ -17,6 +17,7 @@ function video(partial: Partial<VideoListItem>): VideoListItem {
     keywords: [],
     category: partial.category ?? null,
     transcript_source: null,
+    is_favourite: false,
     created_at: partial.created_at ?? "2026-03-05T00:00:00Z",
     updated_at: partial.updated_at ?? "2026-03-05T00:00:00Z",
   };
@@ -25,7 +26,7 @@ function video(partial: Partial<VideoListItem>): VideoListItem {
 describe("buildTodayQueues", () => {
   it("returns top items and counts per queue", () => {
     const result = buildTodayQueues({
-      inbox: [video({ id: "1" }), video({ id: "2" })],
+      favourites: [video({ id: "1" }), video({ id: "2" })],
       recentlyAdded: [video({ id: "3" })],
       needsReview: [
         video({ id: "4" }),
@@ -36,7 +37,7 @@ describe("buildTodayQueues", () => {
       previewLimit: 3,
     });
 
-    expect(result.inbox.count).toBe(2);
+    expect(result.favourites.count).toBe(2);
     expect(result.recentlyAdded.count).toBe(1);
     expect(result.needsReview.preview).toHaveLength(3);
   });

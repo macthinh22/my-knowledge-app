@@ -13,6 +13,7 @@ export type BrowseFilterState = {
   tag?: string;
   collectionId?: string;
   reviewStatus?: string;
+  isFavourite?: boolean;
   sort: SortOption;
 };
 
@@ -23,6 +24,7 @@ export function parseBrowseFilters(params: URLSearchParams): BrowseFilterState {
     tag: params.get("tag") ?? undefined,
     collectionId: params.get("collection") ?? undefined,
     reviewStatus: params.get("review_status") ?? undefined,
+    isFavourite: params.get("is_favourite") === "true" ? true : undefined,
     sort: (params.get("sort") as SortOption | null) ?? "created_at_desc",
   };
 }
@@ -94,6 +96,10 @@ export function buildBrowseSearchParams(
 
   if (state.reviewStatus) {
     params.set("review_status", state.reviewStatus);
+  }
+
+  if (state.isFavourite) {
+    params.set("is_favourite", "true");
   }
 
   params.set("sort", state.sort);

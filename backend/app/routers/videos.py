@@ -128,6 +128,7 @@ async def list_videos(
     category: str | None = Query(default=None),
     collection_id: str | None = Query(default=None),
     review_status: str | None = Query(default=None),
+    is_favourite: bool | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -194,6 +195,9 @@ async def list_videos(
     elif review_status == "recent":
         recent_threshold = datetime.now() - timedelta(days=7)
         query = query.where(Video.last_viewed_at >= recent_threshold)
+
+    if is_favourite is not None:
+        query = query.where(Video.is_favourite == is_favourite)
 
     total_result = await db.execute(
         select(func.count()).select_from(query.order_by(None).subquery())
@@ -280,6 +284,9 @@ async def update_video(
 
     if body.notes is not None:
         video.notes = body.notes
+
+    if body.is_favourite is not None:
+        video.is_favourite = body.is_favourite
 
     if "category" in body.model_fields_set:
         if body.category is None:
