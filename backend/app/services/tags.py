@@ -1,3 +1,4 @@
+import uuid
 from collections import defaultdict
 from datetime import datetime
 
@@ -26,15 +27,19 @@ def normalize_keywords(keywords: list[str] | None) -> list[str]:
 
 
 async def canonicalize_keywords(
-    db: AsyncSession, keywords: list[str] | None
+    db: AsyncSession,
+    keywords: list[str] | None,
+    user_id: uuid.UUID | None = None,
 ) -> list[str]:
     normalized = normalize_keywords(keywords)
     if not normalized:
         return []
 
-    aliases_result = await db.execute(
-        select(TagAlias).where(TagAlias.alias.in_(normalized))
-    )
+    alias_query = select(TagAlias).where(TagAlias.alias.in_(normalized))
+    if user_id is not None:
+        alias_query = alias_query.where(TagAlias.user_id == user_id)
+
+    aliases_result = await db.execute(alias_query)
     aliases = aliases_result.scalars().all()
     alias_map = {record.alias: record.canonical for record in aliases}
 

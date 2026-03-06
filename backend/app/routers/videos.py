@@ -7,8 +7,9 @@ from sqlalchemy import ARRAY, String, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.logging_config import get_logger
-from app.models import Category, Video, VideoJob
+from app.models import Category, User, Video, VideoJob
 from app.schemas import (
     PaginatedVideosResponse,
     VideoCreate,
@@ -28,7 +29,11 @@ youtube_service = YouTubeService()
 
 
 @router.post("", response_model=VideoJobResponse, status_code=status.HTTP_202_ACCEPTED)
-async def create_video(body: VideoCreate, db: AsyncSession = Depends(get_db)):
+async def create_video(
+    body: VideoCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     url_str = str(body.youtube_url)
 
     try:
@@ -38,17 +43,21 @@ async def create_video(body: VideoCreate, db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
 
-    active_job = await _get_active_job(db, youtube_id)
+    active_job = await _get_active_job(db, youtube_id, current_user.id)
     if active_job:
         return active_job
 
     existing_video_result = await db.execute(
-        select(Video).where(Video.youtube_id == youtube_id)
+        select(Video).where(
+            Video.youtube_id == youtube_id,
+            Video.user_id == current_user.id,
+        )
     )
     existing_video = existing_video_result.scalar_one_or_none()
     if existing_video:
         completed_job = await _get_or_create_completed_job(
             db=db,
+            user_id=current_user.id,
             youtube_id=youtube_id,
             youtube_url=url_str,
             video_id=existing_video.id,
@@ -57,6 +66,7 @@ async def create_video(body: VideoCreate, db: AsyncSession = Depends(get_db)):
         return completed_job
 
     job = VideoJob(
+        user_id=current_user.id,
         youtube_url=url_str,
         youtube_id=youtube_id,
         status="queued",
@@ -69,7 +79,7 @@ async def create_video(body: VideoCreate, db: AsyncSession = Depends(get_db)):
     await db.refresh(job)
     await db.commit()
 
-    asyncio.create_task(run_video_job(job.id))
+    asyncio.create_task(run_video_job(job.id, current_user.id))
     logger.info("Video job created: %s for %s", job.id, youtube_id)
     return job
 
@@ -78,8 +88,9 @@ async def create_video(body: VideoCreate, db: AsyncSession = Depends(get_db)):
 async def list_video_jobs(
     status_filter: str | None = Query(default=None, alias="status"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    stmt = select(VideoJob)
+    stmt = select(VideoJob).where(VideoJob.user_id == current_user.id)
     if status_filter:
         statuses = tuple(
             token.strip() for token in status_filter.split(",") if token.strip()
@@ -92,9 +103,13 @@ async def list_video_jobs(
 
 
 @router.get("/jobs/{job_id}", response_model=VideoJobResponse)
-async def get_video_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_video_job(
+    job_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     job = await db.get(VideoJob, job_id)
-    if not job:
+    if not job or job.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Video job not found"
         )
@@ -114,6 +129,7 @@ async def list_videos(
     collection_id: str | None = Query(default=None),
     review_status: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     allowed_sort = {
         "created_at",
@@ -126,7 +142,7 @@ async def list_videos(
     sort_column = getattr(Video, sort_by if sort_by in allowed_sort else "created_at")
     order_expr = sort_column.desc() if sort_order == "desc" else sort_column.asc()
 
-    query = select(Video)
+    query = select(Video).where(Video.user_id == current_user.id)
 
     if search:
         pattern = f"%{search.strip()}%"
@@ -194,9 +210,13 @@ async def list_videos(
 
 
 @router.get("/{video_id}", response_model=VideoResponse)
-async def get_video(video_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_video(
+    video_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     video = await db.get(Video, video_id)
-    if not video:
+    if not video or video.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Video not found"
         )
@@ -212,8 +232,11 @@ async def get_related_videos(
     video_id: str,
     limit: int = Query(default=5, ge=1, le=20),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Video).where(Video.id == video_id))
+    result = await db.execute(
+        select(Video).where(Video.id == video_id, Video.user_id == current_user.id)
+    )
     video = result.scalar_one_or_none()
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
@@ -224,24 +247,30 @@ async def get_related_videos(
     all_result = await db.execute(
         select(Video).where(
             Video.id != video_id,
+            Video.user_id == current_user.id,
             Video.keywords.bool_op("&&")(cast(video.keywords, ARRAY(String))),
         )
     )
-    candidates = all_result.scalars().all()
+    candidates = list(all_result.scalars().all())
 
-    def overlap_count(v):
-        return len(set(v.keywords or []) & set(video.keywords))
+    def overlap_count(v: Video) -> int:
+        left_keywords = v.keywords if v.keywords is not None else []
+        right_keywords = video.keywords if video.keywords is not None else []
+        return len(set(left_keywords) & set(right_keywords))
 
-    candidates.sort(key=overlap_count, reverse=True)
+    candidates = sorted(candidates, key=overlap_count, reverse=True)
     return candidates[:limit]
 
 
 @router.patch("/{video_id}", response_model=VideoResponse)
 async def update_video(
-    video_id: uuid.UUID, body: VideoUpdate, db: AsyncSession = Depends(get_db)
+    video_id: uuid.UUID,
+    body: VideoUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     video = await db.get(Video, video_id)
-    if not video:
+    if not video or video.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Video not found"
         )
@@ -255,7 +284,10 @@ async def update_video(
         else:
             normalized_category = body.category.strip().lower()
             result = await db.execute(
-                select(Category).where(Category.slug == normalized_category)
+                select(Category).where(
+                    Category.slug == normalized_category,
+                    Category.user_id == current_user.id,
+                )
             )
             category = result.scalar_one_or_none()
             if category is None:
@@ -273,9 +305,13 @@ async def update_video(
 
 
 @router.delete("/{video_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_video(video_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def delete_video(
+    video_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     video = await db.get(Video, video_id)
-    if not video:
+    if not video or video.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Video not found"
         )
@@ -284,11 +320,16 @@ async def delete_video(video_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     logger.info("Video deleted: %s", video_id)
 
 
-async def _get_active_job(db: AsyncSession, youtube_id: str) -> VideoJob | None:
+async def _get_active_job(
+    db: AsyncSession,
+    youtube_id: str,
+    user_id: uuid.UUID,
+) -> VideoJob | None:
     result = await db.execute(
         select(VideoJob)
         .where(
             VideoJob.youtube_id == youtube_id,
+            VideoJob.user_id == user_id,
             VideoJob.status.in_(tuple(ACTIVE_JOB_STATUSES)),
         )
         .order_by(VideoJob.created_at.desc())
@@ -298,6 +339,7 @@ async def _get_active_job(db: AsyncSession, youtube_id: str) -> VideoJob | None:
 
 async def _get_or_create_completed_job(
     db: AsyncSession,
+    user_id: uuid.UUID,
     youtube_id: str,
     youtube_url: str,
     video_id: uuid.UUID,
@@ -306,6 +348,7 @@ async def _get_or_create_completed_job(
         select(VideoJob)
         .where(
             VideoJob.youtube_id == youtube_id,
+            VideoJob.user_id == user_id,
             VideoJob.status == "completed",
             VideoJob.video_id == video_id,
         )
@@ -316,6 +359,7 @@ async def _get_or_create_completed_job(
         return existing
 
     job = VideoJob(
+        user_id=user_id,
         youtube_url=youtube_url,
         youtube_id=youtube_id,
         status="completed",

@@ -5,7 +5,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models import Category, Video
+from app.dependencies import get_current_user
+from app.models import Category, User, Video
 from app.schemas import CategoryCreate, CategoryResponse, CategoryUpdate
 
 
@@ -39,17 +40,24 @@ def _normalize_slug(value: str) -> str:
 
 
 @router.get("", response_model=list[CategoryResponse])
-async def list_categories(db: AsyncSession = Depends(get_db)):
+async def list_categories(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     result = await db.execute(
-        select(Category).order_by(
-            Category.display_order.asc(), Category.created_at.asc()
-        )
+        select(Category)
+        .where(Category.user_id == current_user.id)
+        .order_by(Category.display_order.asc(), Category.created_at.asc())
     )
     return result.scalars().all()
 
 
 @router.post("", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
-async def create_category(body: CategoryCreate, db: AsyncSession = Depends(get_db)):
+async def create_category(
+    body: CategoryCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     slug = _normalize_slug(body.slug)
     name = body.name.strip()
 
@@ -64,7 +72,12 @@ async def create_category(body: CategoryCreate, db: AsyncSession = Depends(get_d
             detail="Name is required",
         )
 
-    existing_result = await db.execute(select(Category).where(Category.slug == slug))
+    existing_result = await db.execute(
+        select(Category).where(
+            Category.slug == slug,
+            Category.user_id == current_user.id,
+        )
+    )
     if existing_result.scalar_one_or_none() is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -72,12 +85,18 @@ async def create_category(body: CategoryCreate, db: AsyncSession = Depends(get_d
         )
 
     max_order_result = await db.execute(
-        select(func.coalesce(func.max(Category.display_order), -1))
+        select(func.coalesce(func.max(Category.display_order), -1)).where(
+            Category.user_id == current_user.id
+        )
     )
     next_order = max_order_result.scalar_one() + 1
 
     category = Category(
-        slug=slug, name=name, color=body.color, display_order=next_order
+        user_id=current_user.id,
+        slug=slug,
+        name=name,
+        color=body.color,
+        display_order=next_order,
     )
     db.add(category)
     await db.flush()
@@ -86,7 +105,11 @@ async def create_category(body: CategoryCreate, db: AsyncSession = Depends(get_d
 
 
 @router.delete("/{slug}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_category(slug: str, db: AsyncSession = Depends(get_db)):
+async def delete_category(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     normalized_slug = _normalize_slug(slug)
 
     if normalized_slug in _DEFAULT_CATEGORY_SLUGS:
@@ -96,7 +119,10 @@ async def delete_category(slug: str, db: AsyncSession = Depends(get_db)):
         )
 
     category_result = await db.execute(
-        select(Category).where(Category.slug == normalized_slug)
+        select(Category).where(
+            Category.slug == normalized_slug,
+            Category.user_id == current_user.id,
+        )
     )
     category = category_result.scalar_one_or_none()
     if category is None:
@@ -106,7 +132,10 @@ async def delete_category(slug: str, db: AsyncSession = Depends(get_db)):
         )
 
     videos_result = await db.execute(
-        select(Video).where(Video.category == normalized_slug)
+        select(Video).where(
+            Video.category == normalized_slug,
+            Video.user_id == current_user.id,
+        )
     )
     for video in videos_result.scalars().all():
         video.category = None
@@ -116,11 +145,17 @@ async def delete_category(slug: str, db: AsyncSession = Depends(get_db)):
 
 @router.patch("/{slug}", response_model=CategoryResponse)
 async def update_category(
-    slug: str, body: CategoryUpdate, db: AsyncSession = Depends(get_db)
+    slug: str,
+    body: CategoryUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     normalized_slug = _normalize_slug(slug)
     category_result = await db.execute(
-        select(Category).where(Category.slug == normalized_slug)
+        select(Category).where(
+            Category.slug == normalized_slug,
+            Category.user_id == current_user.id,
+        )
     )
     category = category_result.scalar_one_or_none()
     if category is None:

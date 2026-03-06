@@ -28,10 +28,10 @@ summarizer_service = SummarizerService()
 transcription_service = TranscriptionService()
 
 
-async def run_video_job(job_id: uuid.UUID) -> None:
+async def run_video_job(job_id: uuid.UUID, user_id: uuid.UUID) -> None:
     async with async_session() as db:
         job = await db.get(VideoJob, job_id)
-        if not job or job.status in TERMINAL_JOB_STATUSES:
+        if not job or job.status in TERMINAL_JOB_STATUSES or job.user_id != user_id:
             return
 
         try:
@@ -72,7 +72,9 @@ async def run_video_job(job_id: uuid.UUID) -> None:
                 step_label=JOB_STEPS[2],
             )
 
-            cats_result = await db.execute(select(Category))
+            cats_result = await db.execute(
+                select(Category).where(Category.user_id == user_id)
+            )
             category_rows = cats_result.scalars().all()
             categories = [{"slug": c.slug, "name": c.name} for c in category_rows]
             analysis = await summarizer_service.analyze(
@@ -87,7 +89,11 @@ async def run_video_job(job_id: uuid.UUID) -> None:
             else:
                 selected_category = None
 
-            canonical_keywords = await canonicalize_keywords(db, analysis.keywords)
+            canonical_keywords = await canonicalize_keywords(
+                db,
+                analysis.keywords,
+                user_id,
+            )
 
             await _set_job_state(
                 db,
@@ -98,12 +104,16 @@ async def run_video_job(job_id: uuid.UUID) -> None:
             )
 
             existing = await db.execute(
-                select(Video).where(Video.youtube_id == job.youtube_id)
+                select(Video).where(
+                    Video.youtube_id == job.youtube_id,
+                    Video.user_id == user_id,
+                )
             )
             video = existing.scalar_one_or_none()
 
             if video is None:
                 video = Video(
+                    user_id=user_id,
                     youtube_url=job.youtube_url,
                     youtube_id=job.youtube_id,
                     title=metadata.title,
