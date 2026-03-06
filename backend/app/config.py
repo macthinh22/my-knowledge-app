@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://root:dontwastetime@localhost:5432/myapp"
 
+    # Auth
+    jwt_secret_key: str = "CHANGE-ME-IN-PRODUCTION"
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 30
+
     # OpenAI
     openai_api_key: str = ""
 
