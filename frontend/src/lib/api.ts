@@ -2,8 +2,7 @@
  * API client for YouTube Knowledge Extractor backend.
  */
 
-const API_BASE =
-    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { authFetch } from "./auth";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -100,10 +99,7 @@ async function request<T>(
     path: string,
     options?: RequestInit,
 ): Promise<T> {
-    const res = await fetch(`${API_BASE}${path}`, {
-        headers: { "Content-Type": "application/json" },
-        ...options,
-    });
+    const res = await authFetch(path, options);
 
     if (!res.ok) {
         const body = (await res.json().catch(() => null)) as ApiError | null;
