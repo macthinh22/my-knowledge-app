@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Loader2, Plus, Sparkles } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
@@ -35,14 +35,17 @@ const EMPTY_QUEUES: TodayQueues = {
 
 export default function HomePage() {
   const { activeJob } = useExtraction();
+  const hadActiveJobRef = useRef(false);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [recentItems, setRecentItems] = useState<VideoListItem[]>([]);
   const [queues, setQueues] = useState<TodayQueues>(EMPTY_QUEUES);
   const [loading, setLoading] = useState(true);
 
-  const fetchDashboardData = useCallback(async () => {
-    setLoading(true);
+  const fetchDashboardData = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
 
     try {
       const [nextCategories, recentResponse, inboxRes, neverViewedRes, needsReviewRes] =
@@ -84,13 +87,29 @@ export default function HomePage() {
         }),
       );
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    void fetchDashboardData();
+    void fetchDashboardData(true);
   }, [fetchDashboardData]);
+
+  useEffect(() => {
+    if (activeJob) {
+      hadActiveJobRef.current = true;
+      return;
+    }
+
+    if (!hadActiveJobRef.current) {
+      return;
+    }
+
+    hadActiveJobRef.current = false;
+    void fetchDashboardData(false);
+  }, [activeJob, fetchDashboardData]);
 
   const categoryNameMap = useMemo(
     () => Object.fromEntries(categories.map((category) => [category.slug, category.name])),

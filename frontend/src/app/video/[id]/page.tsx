@@ -4,12 +4,32 @@ import { useCallback, useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Clock, Calendar, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  Check,
+  ChevronsUpDown,
+  Clock,
+  Loader2,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { YouTubeEmbed } from "@/components/YouTubeEmbed";
 import { VideoDetail } from "@/components/VideoDetail";
 import { DeleteButton } from "@/components/DeleteButton";
@@ -38,8 +58,22 @@ import {
   POLLING_MAX_INTERVAL_MS,
   getPollingBackoffDelayMs,
 } from "@/lib/polling";
+import { cn } from "@/lib/utils";
 
 const ACTIVE_JOB_STATUSES = new Set(["queued", "processing"]);
+
+const CATEGORY_DOT_CLASS: Record<string, string> = {
+  slate: "bg-slate-500",
+  red: "bg-red-500",
+  orange: "bg-orange-500",
+  amber: "bg-amber-500",
+  emerald: "bg-emerald-500",
+  teal: "bg-teal-500",
+  blue: "bg-blue-500",
+  indigo: "bg-indigo-500",
+  violet: "bg-violet-500",
+  rose: "bg-rose-500",
+};
 
 export default function VideoPage({
   params,
@@ -52,6 +86,7 @@ export default function VideoPage({
   const [video, setVideo] = useState<Video | null>(null);
   const [job, setJob] = useState<VideoJob | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [savingCategory, setSavingCategory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -170,6 +205,38 @@ export default function VideoPage({
     if (!video) return;
     getRelatedVideos(video.id).then(setRelatedVideos).catch(() => setRelatedVideos([]));
   }, [video]);
+
+  const handleCategoryChange = useCallback(
+    async (nextCategory: string | null) => {
+      if (!video) {
+        return;
+      }
+
+      const currentCategory = video.category ?? null;
+      if (nextCategory === currentCategory) {
+        setCategoryPickerOpen(false);
+        return;
+      }
+
+      setSavingCategory(true);
+      try {
+        const updated = await updateVideoCategory(video.id, nextCategory);
+        setVideo(updated);
+        syncVideoInLibrary(updated);
+        setCategoryPickerOpen(false);
+        setError("");
+      } catch (updateError) {
+        const message =
+          updateError instanceof Error
+            ? updateError.message
+            : "Failed to update category";
+        setError(message);
+      } finally {
+        setSavingCategory(false);
+      }
+    },
+    [syncVideoInLibrary, video],
+  );
 
   useEffect(() => {
     if (!job || !ACTIVE_JOB_STATUSES.has(job.status)) {
@@ -329,6 +396,13 @@ export default function VideoPage({
     );
   }
 
+  const selectedCategoryLabel = video.category
+    ? categoryLabel(video.category, categoryNameMap)
+    : "No category";
+  const selectedCategoryColor = video.category
+    ? categoryColorMap[video.category] ?? "slate"
+    : null;
+
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b border-border px-6 py-3">
@@ -377,35 +451,105 @@ export default function VideoPage({
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Category
                 </p>
-                <select
-                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                  value={video.category ?? ""}
-                  disabled={savingCategory}
-                  onChange={async (e) => {
-                    const nextCategory = e.target.value || null;
-                    setSavingCategory(true);
-                    try {
-                      const updated = await updateVideoCategory(video.id, nextCategory);
-                      setVideo(updated);
-                      syncVideoInLibrary(updated);
-                    } catch (updateError) {
-                      const message =
-                        updateError instanceof Error
-                          ? updateError.message
-                          : "Failed to update category";
-                      setError(message);
-                    } finally {
-                      setSavingCategory(false);
-                    }
-                  }}
+                <Popover
+                  open={categoryPickerOpen}
+                  onOpenChange={setCategoryPickerOpen}
                 >
-                  <option value="">No category</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.slug}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={categoryPickerOpen}
+                      className="h-9 w-full justify-between font-normal"
+                      disabled={savingCategory}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        {savingCategory ? (
+                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+                        ) : (
+                          <span
+                            className={cn(
+                              "h-2.5 w-2.5 shrink-0 rounded-full",
+                              selectedCategoryColor
+                                ? CATEGORY_DOT_CLASS[selectedCategoryColor] ??
+                                    CATEGORY_DOT_CLASS.slate
+                                : "bg-muted-foreground/40",
+                            )}
+                          />
+                        )}
+                        <span className="truncate">{selectedCategoryLabel}</span>
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+
+                  <PopoverContent
+                    align="start"
+                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                  >
+                    <Command>
+                      <CommandInput placeholder="Search categories..." />
+                      <CommandList>
+                        <CommandEmpty>No matching category</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="No category"
+                            onSelect={() => void handleCategoryChange(null)}
+                            disabled={savingCategory}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                video.category ? "opacity-0" : "opacity-100",
+                              )}
+                            />
+                            <span className="flex items-center gap-2">
+                              <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
+                              No category
+                            </span>
+                          </CommandItem>
+
+                          {categories.map((category) => {
+                            const categoryColor =
+                              categoryColorMap[category.slug] ?? "slate";
+
+                            return (
+                              <CommandItem
+                                key={category.id}
+                                value={`${category.name} ${category.slug}`}
+                                onSelect={() =>
+                                  void handleCategoryChange(category.slug)
+                                }
+                                disabled={savingCategory}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    video.category === category.slug
+                                      ? "opacity-100"
+                                      : "opacity-0",
+                                  )}
+                                />
+                                <span className="flex min-w-0 items-center gap-2">
+                                  <span
+                                    className={cn(
+                                      "h-2.5 w-2.5 shrink-0 rounded-full",
+                                      CATEGORY_DOT_CLASS[categoryColor] ??
+                                        CATEGORY_DOT_CLASS.slate,
+                                    )}
+                                  />
+                                  <span className="truncate">
+                                    {category.name}
+                                  </span>
+                                </span>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
 
                 {video.category && (
                   <Badge
