@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { usePathname } from "next/navigation";
 import {
   createVideoJob,
   getVideoJob,
@@ -25,6 +26,7 @@ import {
 
 const ACTIVE_JOB_STORAGE_KEY = "active-extraction-job-id";
 const ACTIVE_STATUSES = new Set(["queued", "processing"]);
+const PUBLIC_PATHS = ["/login", "/register"];
 
 export interface Extraction {
   jobId: string;
@@ -50,6 +52,7 @@ interface ExtractionContextValue {
 const ExtractionContext = createContext<ExtractionContextValue | null>(null);
 
 export function ExtractionProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [activeJob, setActiveJob] = useState<VideoJob | null>(null);
   const [videos, setVideos] = useState<VideoListItem[]>([]);
   const [loadingVideos, setLoadingVideos] = useState(true);
@@ -178,6 +181,16 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
     let isMounted = true;
 
     const bootstrap = async () => {
+      if (PUBLIC_PATHS.includes(pathname)) {
+        stopPolling();
+        if (isMounted) {
+          setActiveJob(null);
+          setVideos([]);
+          setLoadingVideos(false);
+        }
+        return;
+      }
+
       try {
         const data = await listVideos({ limit: 100 });
         if (isMounted) setVideos(data.items);
@@ -222,7 +235,7 @@ export function ExtractionProvider({ children }: { children: React.ReactNode }) 
       isMounted = false;
       stopPolling();
     };
-  }, [persistActiveJobId, startPolling, stopPolling]);
+  }, [pathname, persistActiveJobId, startPolling, stopPolling]);
 
   const extraction = useMemo<Extraction | null>(() => {
     if (!activeJob || !ACTIVE_STATUSES.has(activeJob.status)) {

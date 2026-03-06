@@ -1,6 +1,6 @@
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
@@ -37,9 +37,7 @@ async def _create_refresh_token(
 ) -> None:
     raw_token = secrets.token_urlsafe(64)
     token_hash = hash_refresh_token(raw_token)
-    expires_at = datetime.now(timezone.utc) + timedelta(
-        days=settings.refresh_token_expire_days
-    )
+    expires_at = datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days)
 
     refresh = RefreshToken(
         user_id=user_id,
@@ -133,7 +131,7 @@ async def refresh(
     )
     stored = result.scalar_one_or_none()
 
-    if stored is None or stored.expires_at < datetime.now(timezone.utc):
+    if stored is None or stored.expires_at < datetime.utcnow():
         response.delete_cookie(REFRESH_TOKEN_COOKIE, path="/api/auth")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

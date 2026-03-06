@@ -21,6 +21,8 @@ interface AuthContextValue {
   logout: () => Promise<void>;
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
 const AuthContext = createContext<AuthContextValue>({
   authenticated: false,
   loading: true,
@@ -42,35 +44,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
+    async function fetchUsername(token: string): Promise<string | null> {
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+        });
+        if (!res.ok) {
+          return null;
+        }
+        const data = await res.json();
+        return typeof data?.username === "string" ? data.username : null;
+      } catch {
+        return null;
+      }
+    }
+
     async function init() {
       if (PUBLIC_PATHS.includes(pathname)) {
         setLoading(false);
         return;
       }
 
-      const existing = getAccessToken();
-      if (existing) {
-        setAuthenticated(true);
-        setLoading(false);
-        return;
+      let token = getAccessToken();
+      if (!token) {
+        token = await refreshAccessToken();
       }
 
-      const token = await refreshAccessToken();
       if (token) {
         setAuthenticated(true);
-        try {
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/auth/me`,
-            { headers: { Authorization: `Bearer ${token}` } },
-          );
-          if (res.ok) {
-            const data = await res.json();
-            setUsername(data.username);
-          }
-        } catch {
-          setUsername(null);
-        }
+        setUsername(await fetchUsername(token));
       } else {
+        setAuthenticated(false);
+        setUsername(null);
         router.replace("/login");
       }
 
@@ -93,6 +99,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         <p className="text-sm text-muted-foreground">Loading...</p>
       </div>
     );
+  }
+
+  if (!authenticated && !PUBLIC_PATHS.includes(pathname)) {
+    return null;
   }
 
   return (
