@@ -13,6 +13,7 @@ python-dotenv>=1.0.0
 
 # Auth
 passlib[bcrypt]>=1.7.4
+bcrypt<5
 python-jose[cryptography]>=3.3.0
 
 # AI
