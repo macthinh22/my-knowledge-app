@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { AuthProvider } from "@/context/auth";
 import { ExtractionProvider } from "@/context/extraction";
 import "./globals.css";
 
@@ -35,7 +36,9 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.variable} font-sans`}>
-        <ExtractionProvider>{children}</ExtractionProvider>
+        <AuthProvider>
+          <ExtractionProvider>{children}</ExtractionProvider>
+        </AuthProvider>
       </body>
     </html>
   );
