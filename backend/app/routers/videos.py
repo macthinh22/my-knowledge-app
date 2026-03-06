@@ -139,8 +139,11 @@ async def list_videos(
         "last_viewed_at",
         "view_count",
     }
-    sort_column = getattr(Video, sort_by if sort_by in allowed_sort else "created_at")
-    order_expr = sort_column.desc() if sort_order == "desc" else sort_column.asc()
+    if sort_by == "random":
+        order_expr = func.random()
+    else:
+        sort_column = getattr(Video, sort_by if sort_by in allowed_sort else "created_at")
+        order_expr = sort_column.desc() if sort_order == "desc" else sort_column.asc()
 
     query = select(Video).where(Video.user_id == current_user.id)
 

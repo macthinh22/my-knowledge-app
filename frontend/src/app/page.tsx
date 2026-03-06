@@ -6,6 +6,7 @@ import { ArrowRight, Loader2, Plus, Sparkles } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 
 import { DashboardToolbar } from "@/components/DashboardToolbar";
+import { KeywordChips } from "@/components/KeywordChips";
 import { PendingVideoCard } from "@/components/PendingVideoCard";
 import { TodayQueueCard } from "@/components/TodayQueueCard";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,7 @@ import {
 
 const EMPTY_QUEUES: TodayQueues = {
   inbox: { count: 0, preview: [] },
-  neverViewed: { count: 0, preview: [] },
+  recentlyAdded: { count: 0, preview: [] },
   needsReview: { count: 0, preview: [] },
 };
 
@@ -39,6 +40,7 @@ export default function HomePage() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [recentItems, setRecentItems] = useState<VideoListItem[]>([]);
+  const [randomItems, setRandomItems] = useState<VideoListItem[]>([]);
   const [queues, setQueues] = useState<TodayQueues>(EMPTY_QUEUES);
   const [loading, setLoading] = useState(true);
 
@@ -48,22 +50,20 @@ export default function HomePage() {
     }
 
     try {
-      const [nextCategories, recentResponse, inboxRes, neverViewedRes, needsReviewRes] =
+      const [nextCategories, recentResponse, randomResponse, inboxRes, needsReviewRes] =
         await Promise.all([
           listCategories().catch(() => [] as Category[]),
           listVideos({
             sort_by: "created_at",
             sort_order: "desc",
-            limit: 5,
-          }).catch(() => ({ items: [] as VideoListItem[], total: 0 })),
-          listVideos({
-            category: "__uncategorized__",
-            sort_by: "created_at",
-            sort_order: "desc",
             limit: 20,
           }).catch(() => ({ items: [] as VideoListItem[], total: 0 })),
           listVideos({
-            review_status: "never_viewed",
+            sort_by: "random",
+            limit: 10,
+          }).catch(() => ({ items: [] as VideoListItem[], total: 0 })),
+          listVideos({
+            category: "__uncategorized__",
             sort_by: "created_at",
             sort_order: "desc",
             limit: 20,
@@ -78,10 +78,12 @@ export default function HomePage() {
 
       setCategories(nextCategories);
       setRecentItems(recentResponse.items);
+      setRandomItems(randomResponse.items);
+
       setQueues(
         buildTodayQueues({
           inbox: inboxRes.items,
-          neverViewed: neverViewedRes.items,
+          recentlyAdded: recentResponse.items,
           needsReview: needsReviewRes.items,
           previewLimit: 3,
         }),
@@ -194,11 +196,11 @@ export default function HomePage() {
               items={queues.inbox.preview}
             />
             <TodayQueueCard
-              title="Never Viewed"
-              count={queues.neverViewed.count}
-              emptyMessage="Everything has been viewed at least once."
-              href="/browse?review_status=never_viewed"
-              items={queues.neverViewed.preview}
+              title="Recently Added"
+              count={queues.recentlyAdded.count}
+              emptyMessage="No videos added yet."
+              href="/browse?sort=created_at_desc"
+              items={queues.recentlyAdded.preview}
             />
             <TodayQueueCard
               title="Needs Review"
@@ -215,11 +217,11 @@ export default function HomePage() {
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-amber-500" />
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                Recently Added
+                All Videos
               </h2>
             </div>
             <Link
-              href="/browse?sort=created_at_desc"
+              href="/browse"
               className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               Open browse
@@ -227,7 +229,7 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {recentItems.length === 0 ? (
+          {randomItems.length === 0 ? (
             <div className="rounded-2xl border border-dashed p-8 text-center">
               <p className="text-sm text-muted-foreground">
                 No resources yet. Add your first URL to get started.
@@ -235,30 +237,35 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="divide-y rounded-2xl border bg-card shadow-sm">
-              {recentItems.map((item) => (
+              {randomItems.map((item) => (
                 <Link
                   key={item.id}
                   href={`/video/${item.id}`}
-                  className="flex min-w-0 items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/60"
+                  className="flex min-w-0 items-start gap-3 px-4 py-3 transition-colors hover:bg-accent/60"
                 >
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                    {item.title ?? "Untitled"}
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">
+                      {item.title ?? "Untitled"}
+                    </span>
+                    <KeywordChips keywords={item.keywords} maxVisible={Infinity} className="mt-1" />
+                  </div>
 
-                  {item.category && (
-                    <Badge
-                      variant="outline"
-                      className={`hidden shrink-0 px-1.5 py-0 text-[10px] sm:inline-flex ${getCategoryBadgeClass(categoryColorMap[item.category])}`}
-                    >
-                      {categoryLabel(item.category, categoryNameMap)}
-                    </Badge>
-                  )}
+                  <div className="flex shrink-0 items-center gap-2 pt-0.5">
+                    {item.category && (
+                      <Badge
+                        variant="outline"
+                        className={`hidden px-1.5 py-0 text-[10px] sm:inline-flex ${getCategoryBadgeClass(categoryColorMap[item.category])}`}
+                      >
+                        {categoryLabel(item.category, categoryNameMap)}
+                      </Badge>
+                    )}
 
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {formatDistanceToNowStrict(new Date(item.created_at), {
-                      addSuffix: true,
-                    })}
-                  </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDistanceToNowStrict(new Date(item.created_at), {
+                        addSuffix: true,
+                      })}
+                    </span>
+                  </div>
                 </Link>
               ))}
             </div>

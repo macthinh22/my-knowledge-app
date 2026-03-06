@@ -26,7 +26,7 @@ describe("buildTodayQueues", () => {
   it("returns top items and counts per queue", () => {
     const result = buildTodayQueues({
       inbox: [video({ id: "1" }), video({ id: "2" })],
-      neverViewed: [video({ id: "3" })],
+      recentlyAdded: [video({ id: "3" })],
       needsReview: [
         video({ id: "4" }),
         video({ id: "5" }),
@@ -37,7 +37,7 @@ describe("buildTodayQueues", () => {
     });
 
     expect(result.inbox.count).toBe(2);
-    expect(result.neverViewed.count).toBe(1);
+    expect(result.recentlyAdded.count).toBe(1);
     expect(result.needsReview.preview).toHaveLength(3);
   });
 });

@@ -4,13 +4,13 @@ type QueueSlice = { count: number; preview: VideoListItem[] };
 
 export type TodayQueues = {
   inbox: QueueSlice;
-  neverViewed: QueueSlice;
+  recentlyAdded: QueueSlice;
   needsReview: QueueSlice;
 };
 
 export function buildTodayQueues(input: {
   inbox: VideoListItem[];
-  neverViewed: VideoListItem[];
+  recentlyAdded: VideoListItem[];
   needsReview: VideoListItem[];
   previewLimit: number;
 }): TodayQueues {
@@ -21,7 +21,7 @@ export function buildTodayQueues(input: {
 
   return {
     inbox: slice(input.inbox),
-    neverViewed: slice(input.neverViewed),
+    recentlyAdded: slice(input.recentlyAdded),
     needsReview: slice(input.needsReview),
   };
 }
